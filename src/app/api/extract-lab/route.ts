@@ -16,8 +16,6 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  console.log("1. Auth passed, user:", user.id);
-
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -29,25 +27,19 @@ export async function POST(request: NextRequest) {
   if (!file || file.type !== "application/pdf") {
     return NextResponse.json({ error: "PDF file required" }, { status: 400 });
   }
-  console.log("2. Got file:", file.name, file.size);
-
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
   const base64 = buffer.toString("base64");
-  console.log("3. Base64 encoded, length:", base64.length);
-
   // Upload to Supabase Storage
   const storageFilename = `${user.id}/${crypto.randomUUID()}.pdf`;
   await supabase.storage
     .from("lab-reports")
     .upload(storageFilename, buffer, { contentType: "application/pdf" });
   // Continue even if storage upload fails — the extraction is the critical path.
-  console.log("4. Storage upload done");
 
   // Call Claude API with the PDF
   let extracted: unknown[];
   try {
-    console.log("5. Calling Claude API...");
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
@@ -70,7 +62,6 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    console.log("6. Claude responded");
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       return NextResponse.json(
@@ -79,7 +70,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("7. Raw Claude response:", textBlock.text.slice(0, 200));
     const raw = textBlock.text
       .replace(/```json/g, "")
       .replace(/```/g, "")
