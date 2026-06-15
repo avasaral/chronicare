@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Activity, FlaskConical, Pill } from "lucide-react";
+import SignOutButton from "@/components/SignOutButton";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
       <header className="border-b border-border bg-card px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-semibold text-foreground">ChroniCare</h1>
-          <span className="text-sm text-muted-foreground">{user.email}</span>
+          <SignOutButton />
         </div>
       </header>
 

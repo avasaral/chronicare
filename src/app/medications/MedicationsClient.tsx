@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Plus, ArrowLeft, Clock } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, ArrowLeft, Clock, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import SignOutButton from "@/components/SignOutButton";
 
 type DoseHistoryEntry = {
   id: string;
@@ -285,9 +286,145 @@ function AddHistoricalDoseForm({
   );
 }
 
+// ─── Edit medication ──────────────────────────────────────────────────────────
+
+function EditMedicationForm({
+  medication,
+  onDone,
+}: {
+  medication: Medication;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(medication.name);
+  const [unit, setUnit] = useState(medication.unit);
+  const [frequency, setFrequency] = useState(medication.frequency);
+  const [startDate, setStartDate] = useState(medication.start_date);
+  const [notes, setNotes] = useState(medication.notes ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("medications")
+      .update({
+        name: name.trim(),
+        unit,
+        frequency,
+        start_date: startDate,
+        notes: notes.trim() || null,
+      })
+      .eq("id", medication.id);
+
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+
+    router.refresh();
+    onDone();
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-lg border border-border bg-muted/40 p-4 space-y-3"
+    >
+      <p className="text-sm font-medium text-foreground">Edit medication</p>
+
+      <div>
+        <FieldLabel>Medication name</FieldLabel>
+        <input
+          type="text"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={field}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <FieldLabel>Unit</FieldLabel>
+          <select
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            className={field}
+          >
+            {UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <FieldLabel>Start date</FieldLabel>
+          <input
+            type="date"
+            required
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className={field}
+          />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Frequency</FieldLabel>
+        <select
+          value={frequency}
+          onChange={(e) => setFrequency(e.target.value)}
+          className={field}
+        >
+          {FREQUENCIES.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <FieldLabel>Notes (optional)</FieldLabel>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className={`${field} resize-none`}
+          rows={2}
+          placeholder="Any notes about this medication…"
+        />
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={loading}>
+          {loading ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onDone}
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Medication card ──────────────────────────────────────────────────────────
 
-type ActiveForm = "change" | "historical" | null;
+type ActiveForm = "change" | "historical" | "edit" | null;
 
 function MedicationCard({
   medication,
@@ -296,8 +433,10 @@ function MedicationCard({
   medication: Medication;
   userId: string;
 }) {
+  const router = useRouter();
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // dose_history arrives pre-sorted DESC from the server query.
   // Sort again client-side as a safety net — localeCompare on ISO strings
@@ -313,6 +452,15 @@ function MedicationCard({
   function toggleForm(form: ActiveForm) {
     setActiveForm((prev) => (prev === form ? null : form));
     setShowHistory(false);
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    setDeleting(true);
+    const supabase = createClient();
+    await supabase.from("dose_history").delete().eq("medication_id", medication.id);
+    await supabase.from("medications").delete().eq("id", medication.id);
+    router.refresh();
   }
 
   return (
@@ -346,6 +494,23 @@ function MedicationCard({
             <Clock />
             Add historical
           </Button>
+          <Button
+            variant={activeForm === "edit" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => toggleForm("edit")}
+          >
+            <Pencil />
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-destructive hover:text-destructive"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
         </div>
       </div>
 
@@ -367,6 +532,13 @@ function MedicationCard({
         <AddHistoricalDoseForm
           medication={medication}
           userId={userId}
+          onDone={() => setActiveForm(null)}
+        />
+      )}
+
+      {activeForm === "edit" && (
+        <EditMedicationForm
+          medication={medication}
           onDone={() => setActiveForm(null)}
         />
       )}
@@ -624,14 +796,17 @@ export default function MedicationsClient({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <h1 className="text-xl font-semibold text-foreground">Medications</h1>
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+            <h1 className="text-xl font-semibold text-foreground">Medications</h1>
+          </div>
+          <SignOutButton />
         </div>
       </header>
 

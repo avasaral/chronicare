@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import SignOutButton from "@/components/SignOutButton";
+import { createClient } from "@/lib/supabase/client";
 import type { LabRow } from "./page";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -86,32 +88,51 @@ function LabTable({ rows }: { rows: LabRow[] }) {
 // ─── Previous Upload Card ─────────────────────────────────────────────────────
 
 function PreviousCard({ result }: { result: PreviousResult }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const rows: LabRow[] = Array.isArray(result.extracted_json)
     ? result.extracted_json
     : [];
 
+  async function handleDelete() {
+    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    setDeleting(true);
+    const supabase = createClient();
+    await supabase.from("lab_results").delete().eq("id", result.id);
+    router.refresh();
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/40 transition-colors"
-      >
-        <div className="flex flex-col items-start gap-0.5">
-          <span className="text-sm font-medium text-foreground">
-            {result.source_filename}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatDate(result.report_date)} · {rows.length} result
-            {rows.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-        )}
-      </button>
+      <div className="flex items-center px-5 py-4">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 flex items-center justify-between gap-3 text-left hover:opacity-80 transition-opacity"
+        >
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-sm font-medium text-foreground">
+              {result.source_filename}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatDate(result.report_date)} · {rows.length} result
+              {rows.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {expanded ? (
+            <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+          )}
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="ml-4 text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
+        >
+          {deleting ? "Deleting…" : "Delete"}
+        </button>
+      </div>
       {expanded && rows.length > 0 && (
         <div className="px-5 pb-5 border-t border-border pt-4">
           <LabTable rows={rows} />
@@ -220,14 +241,17 @@ export default function LabsClient({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <h1 className="text-xl font-semibold text-foreground">Lab Results</h1>
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+            <h1 className="text-xl font-semibold text-foreground">Lab Results</h1>
+          </div>
+          <SignOutButton />
         </div>
       </header>
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import SignOutButton from "@/components/SignOutButton";
 import {
   LineChart,
   Line,
@@ -230,6 +231,15 @@ const METRICS = [
 ];
 
 function LogList({ logs }: { logs: SymptomLog[] }) {
+  const router = useRouter();
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    const supabase = createClient();
+    await supabase.from("symptom_logs").delete().eq("id", id);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-2">
       {logs.map((log) => (
@@ -241,18 +251,26 @@ function LogList({ logs }: { logs: SymptomLog[] }) {
             <p className="text-sm font-medium text-foreground shrink-0">
               {formatDate(log.date)}
             </p>
-            <div className="flex gap-1.5 flex-wrap">
-              {METRICS.map(({ key, label }) => {
-                const val = log[key];
-                return (
-                  <span
-                    key={key}
-                    className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${badgeCls(val)}`}
-                  >
-                    {label}: {val ?? "–"}
-                  </span>
-                );
-              })}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1.5 flex-wrap">
+                {METRICS.map(({ key, label }) => {
+                  const val = log[key];
+                  return (
+                    <span
+                      key={key}
+                      className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${badgeCls(val)}`}
+                    >
+                      {label}: {val ?? "–"}
+                    </span>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => handleDelete(log.id)}
+                className="text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
+              >
+                Delete
+              </button>
             </div>
           </div>
           {log.notes && (
@@ -349,19 +367,22 @@ export default function SymptomsClient({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <h1 className="text-xl font-semibold text-foreground">Symptoms</h1>
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+            <h1 className="text-xl font-semibold text-foreground">Symptoms</h1>
+          </div>
+          <SignOutButton />
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        <TodayForm todayLog={todayLog} userId={userId} />
+        <TodayForm key={todayLog?.id ?? "new"} todayLog={todayLog} userId={userId} />
 
         {logs.length > 0 && (
           <section className="space-y-3">
