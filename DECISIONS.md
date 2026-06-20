@@ -56,8 +56,6 @@ architecture — user documents stay in user's own cloud.
 
 ## V2 backlog
 - Mobile-first responsive UI
-- Daily Tracker (rename from Symptoms) with food, sleep, bowel, skills
-- Medication adherence daily checkbox
 - Lab trend chart across multiple reports
 - Doctor visit notes section
 - Provider view (read-only, user controls what's visible)

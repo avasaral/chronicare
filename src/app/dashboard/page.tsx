@@ -21,7 +21,7 @@ export default async function DashboardPage() {
         .select("name")
         .order("start_date", { ascending: false }),
       supabase
-        .from("symptom_logs")
+        .from("daily_tracker")
         .select("id")
         .eq("date", today)
         .maybeSingle(),
@@ -83,15 +83,15 @@ export default async function DashboardPage() {
             </div>
           </Link>
 
-          {/* Symptoms */}
+          {/* Daily Tracker */}
           <Link
-            href="/symptoms"
+            href="/daily-tracker"
             className="flex items-start gap-4 rounded-xl border border-border bg-card px-5 py-4 shadow-xs hover:border-foreground/20 transition-colors"
           >
             <Activity className="size-5 text-muted-foreground mt-0.5 shrink-0" />
             <div className="flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-medium text-foreground">Symptoms</p>
+                <p className="font-medium text-foreground">Daily Tracker</p>
                 {symptomsLoggedToday ? (
                   <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800 shrink-0">
                     Logged today
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {symptomsLoggedToday
                   ? "Today's log is complete"
-                  : "Tap to log today's symptoms →"}
+                  : "Tap to log today →"}
               </p>
             </div>
           </Link>

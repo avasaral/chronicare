@@ -12,7 +12,7 @@ Currently tracking: medication dose changes, daily symptoms, lab results (blood 
 - Vercel for hosting
 
 ## Architecture
-- All pages under /dashboard, /medications, /symptoms, /labs are protected by middleware
+- All pages under /dashboard, /medications, /daily-tracker, /labs are protected by middleware
 - Middleware in src/proxy.ts (Next.js 16 uses proxy not middleware)
 - Supabase clients: src/lib/supabase/client.ts (browser) and server.ts (server)
 - RLS enabled on all tables — users see only their own rows
@@ -29,9 +29,18 @@ id, medication_id, user_id, dose (numeric), changed_at, notes
 - "Log dose change" inserts new row with new dose
 - "Add historical" inserts past entry without changing current
 
-### symptom_logs
-id, user_id, date, energy, mood, appetite, pain_level, notes
-- one entry per user per day
+### daily_tracker
+id, user_id, date, created_at
+- mood, energy, pain_level (smallint 1-10, UI uses 1-5)
+- stomach_pain, bloating, nausea, loose_stools, constipation (smallint 0-3: none/mild/moderate/severe)
+- bm_frequency (smallint, count for the day)
+- bm_consistency (smallint 1-7, Bristol Stool Scale: 1-2 hard, 3-4 normal, 5-7 loose)
+- food_notes (text), junk_sugar_flag (boolean)
+- exercise (text), sleep_hours (numeric 0-24), sleep_quality (smallint 0-3: poor/fair/good/great)
+- medication_taken (boolean)
+- school_notes (text), skills_notes (text)
+- notes (text, catch-all)
+- one entry per user per day (unique constraint on user_id, date)
 - if entry exists for today: show in edit/update mode
 
 ### lab_results
@@ -57,7 +66,8 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at
 - /login — email + password auth
 - /dashboard — summary view
 - /medications — medication log with dose history
-- /symptoms — daily symptom log (to be renamed Daily Tracker)
+- /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
+- /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload and extraction results
 
 ## Rules

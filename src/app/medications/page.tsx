@@ -12,7 +12,7 @@ export default async function MedicationsPage() {
 
   const { data: meds } = await supabase
     .from("medications")
-    .select("id, name, dose, unit, frequency, start_date, notes, created_at")
+    .select("id, name, dose, unit, frequency, start_date, notes, side_effects, created_at")
     .order("start_date", { ascending: false });
 
   const medList = meds ?? [];

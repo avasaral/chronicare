@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Plus, ArrowLeft, Clock, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, ArrowLeft, Clock, Pencil, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import SignOutButton from "@/components/SignOutButton";
@@ -23,6 +23,7 @@ type Medication = {
   frequency: string;
   start_date: string;
   notes: string | null;
+  side_effects: string | null;
   created_at: string;
   // Pre-computed server-side: dose_history ORDER BY changed_at DESC LIMIT 1,
   // falling back to medications.dose when history is empty.
@@ -301,6 +302,7 @@ function EditMedicationForm({
   const [frequency, setFrequency] = useState(medication.frequency);
   const [startDate, setStartDate] = useState(medication.start_date);
   const [notes, setNotes] = useState(medication.notes ?? "");
+  const [sideEffects, setSideEffects] = useState(medication.side_effects ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -318,6 +320,7 @@ function EditMedicationForm({
         frequency,
         start_date: startDate,
         notes: notes.trim() || null,
+        side_effects: sideEffects.trim() || null,
       })
       .eq("id", medication.id);
 
@@ -399,6 +402,17 @@ function EditMedicationForm({
           className={`${field} resize-none`}
           rows={2}
           placeholder="Any notes about this medication…"
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Side effects to watch for (optional)</FieldLabel>
+        <textarea
+          value={sideEffects}
+          onChange={(e) => setSideEffects(e.target.value)}
+          className={`${field} resize-none`}
+          rows={2}
+          placeholder="Side effects to watch for per doctor..."
         />
       </div>
 
@@ -520,6 +534,13 @@ function MedicationCard({
         </p>
       )}
 
+      {medication.side_effects && (
+        <div className="flex items-start gap-1.5 text-amber-600">
+          <TriangleAlert className="size-3.5 shrink-0 mt-0.5" />
+          <p className="text-xs">Watch for: {medication.side_effects}</p>
+        </div>
+      )}
+
       {activeForm === "change" && (
         <DoseChangeForm
           medication={medication}
@@ -604,6 +625,7 @@ function AddMedicationForm({ userId }: { userId: string }) {
     useState<(typeof FREQUENCIES)[number]>("once daily");
   const [startDate, setStartDate] = useState(todayStr());
   const [notes, setNotes] = useState("");
+  const [sideEffects, setSideEffects] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -614,6 +636,7 @@ function AddMedicationForm({ userId }: { userId: string }) {
     setFrequency("once daily");
     setStartDate(todayStr());
     setNotes("");
+    setSideEffects("");
     setError(null);
   }
 
@@ -634,6 +657,7 @@ function AddMedicationForm({ userId }: { userId: string }) {
         frequency,
         start_date: startDate,
         notes: notes.trim() || null,
+        side_effects: sideEffects.trim() || null,
       })
       .select("id")
       .single();
@@ -771,6 +795,17 @@ function AddMedicationForm({ userId }: { userId: string }) {
             className={`${field} resize-none`}
             rows={3}
             placeholder="Any notes about this medication…"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <FieldLabel>Side effects to watch for (optional)</FieldLabel>
+          <textarea
+            value={sideEffects}
+            onChange={(e) => setSideEffects(e.target.value)}
+            className={`${field} resize-none`}
+            rows={2}
+            placeholder="Side effects to watch for per doctor..."
           />
         </div>
       </div>
