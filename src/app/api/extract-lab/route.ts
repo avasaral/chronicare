@@ -4,8 +4,33 @@ import { createClient } from "@/lib/supabase/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Tries common Indian lab filename date formats as a last resort.
+// Prefers YYYY-MM-DD, then DD-MM-YYYY / DD.MM.YYYY / DD/MM/YYYY.
+function parseDateFromFilename(filename: string): string | null {
+  const iso = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const dmy = filename.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+  if (dmy) {
+    const d = dmy[1].padStart(2, "0");
+    const m = dmy[2].padStart(2, "0");
+    const y = dmy[3];
+    const date = new Date(`${y}-${m}-${d}T00:00:00Z`);
+    if (!isNaN(date.getTime())) return `${y}-${m}-${d}`;
+  }
+
+  return null;
+}
+
 const SYSTEM_PROMPT =
-  "You are a medical document parser. Extract all lab test results from this report. Return ONLY a JSON array with no other text: [{test_name, value, unit, reference_range, flag}] where flag is normal, low, or high. If reference range is not available set it to null.";
+  `You are a medical document parser. Extract all lab test results and the report date from this document.
+Return ONLY a JSON object with no other text:
+{
+  "report_date": "YYYY-MM-DD",
+  "results": [{"test_name": "...", "value": "...", "unit": "...", "reference_range": "...", "flag": "normal|low|high"}]
+}
+For report_date use the date printed on the lab report in YYYY-MM-DD format. If you cannot find a date, return null.
+For flag use "normal", "low", or "high". If reference_range is not available set it to null.`;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -39,6 +64,7 @@ export async function POST(request: NextRequest) {
 
   // Call Claude API with the PDF
   let extracted: unknown[];
+  let reportDate: string;
   try {
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -74,8 +100,16 @@ export async function POST(request: NextRequest) {
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
-    extracted = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Accept both the new {report_date, results} shape and the legacy bare array
+    extracted = Array.isArray(parsed) ? parsed : parsed.results ?? [];
     if (!Array.isArray(extracted)) throw new Error("Expected array");
+    reportDate =
+      (!Array.isArray(parsed) && typeof parsed.report_date === "string"
+        ? parsed.report_date
+        : null) ??
+      parseDateFromFilename(file.name) ??
+      new Date().toISOString().slice(0, 10);
   } catch (err) {
     return NextResponse.json(
       { error: "Extraction failed", detail: String(err) },
@@ -84,10 +118,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Save to lab_results
-  const today = new Date().toISOString().slice(0, 10);
   const { error: dbError } = await supabase.from("lab_results").insert({
     user_id: user.id,
-    report_date: today,
+    report_date: reportDate,
     source_filename: file.name,
     extracted_json: extracted,
   });
