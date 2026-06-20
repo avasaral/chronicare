@@ -41,15 +41,50 @@ type TestTrend = {
 
 // ─── Test-name normalization (display/grouping only — stored data unchanged) ──
 
+// Fixed clinical equivalences only — NOT fuzzy matching.
+// Maps lowercase input variant → canonical grouping key (also lowercase).
+const TEST_SYNONYM_KEYS: Record<string, string> = {
+  // SGOT = AST, SGPT = ALT: old enzyme naming vs modern (universal equivalence)
+  "sgot":       "ast",
+  "sgot (ast)": "ast",
+  "sgot(ast)":  "ast",
+  "ast/sgot":   "ast",
+  "sgpt":       "alt",
+  "sgpt (alt)": "alt",
+  "sgpt(alt)":  "alt",
+  "alt/sgpt":   "alt",
+  // Platelet Count variants seen in real data (previous session SQL analysis)
+  "platelet count (plt)": "platelet count",
+  "plt":                  "platelet count",
+  "platelets":            "platelet count",
+  // Haemoglobin: British spelling (Indian lab standard) vs American
+  "hemoglobin": "haemoglobin",
+  "hb":         "haemoglobin",
+  "hgb":        "haemoglobin",
+};
+
+// Preferred display label for keys that have synonym consolidation.
+const CANONICAL_TEST_DISPLAY: Record<string, string> = {
+  "ast":           "AST",
+  "alt":           "ALT",
+  "platelet count": "Platelet Count",
+  "haemoglobin":   "Haemoglobin",
+};
+
 function testKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
+  const lower = name.trim().toLowerCase().replace(/\s+/g, " ");
+  return TEST_SYNONYM_KEYS[lower] ?? lower;
 }
 
-// Most-frequent original form wins; ties resolved by original order.
+// Most-frequent original form wins; canonical display name overrides if defined.
 function pickDisplayName(variants: string[]): string {
   const freq = new Map<string, number>();
   for (const n of variants) freq.set(n, (freq.get(n) ?? 0) + 1);
   return [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function resolveDisplayName(key: string, variants: string[]): string {
+  return CANONICAL_TEST_DISPLAY[key] ?? pickDisplayName(variants);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -193,7 +228,7 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
 
   const trends: TestTrend[] = [];
 
-  for (const [, entries] of map) {
+  for (const [key, entries] of map) {
     const distinctDates = [...new Set(entries.map((e) => e.date))];
     if (distinctDates.length < 2) continue;
 
@@ -224,8 +259,8 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
     const last = entries[entries.length - 1];
     const parsed = parseRefRange(last.ref);
 
-    // Display name = most common original casing
-    const displayName = pickDisplayName(entries.map((e) => e.originalName));
+    // Display name = canonical if in synonym map, else most-common original casing
+    const displayName = resolveDisplayName(key, entries.map((e) => e.originalName));
 
     // Category = first non-uncategorized value
     const category =
@@ -477,8 +512,8 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
   const sortedCategories = [...byCategory.keys()].sort();
   for (const [, keys] of byCategory) {
     keys.sort((a, b) => {
-      const na = pickDisplayName(testIndex.get(a)!.nameVariants);
-      const nb = pickDisplayName(testIndex.get(b)!.nameVariants);
+      const na = resolveDisplayName(a, testIndex.get(a)!.nameVariants);
+      const nb = resolveDisplayName(b, testIndex.get(b)!.nameVariants);
       return na.localeCompare(nb);
     });
   }
@@ -528,7 +563,7 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
                     {keys.map((key) => {
                       const { nameVariants, cells } =
                         testIndex.get(key)!;
-                      const label = pickDisplayName(nameVariants);
+                      const label = resolveDisplayName(key, nameVariants);
                       return (
                         <tr
                           key={key}
