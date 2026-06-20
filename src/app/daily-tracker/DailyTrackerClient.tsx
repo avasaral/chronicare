@@ -64,26 +64,44 @@ function calcSleepHours(sleptAt: string, wokeAt: string): number | null {
   const sleptMins = sh * 60 + sm;
   let wokeMins = wh * 60 + wm;
   if (wokeMins <= sleptMins) wokeMins += 1440; // overnight: add 24 hrs
-  return Math.round((wokeMins - sleptMins) / 60 * 10) / 10;
+  return Math.round(((wokeMins - sleptMins) / 60) * 10) / 10;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Design system ────────────────────────────────────────────────────────────
 
-function SectionHeader({ label }: { label: string }) {
+// Shared input classes — text-base prevents iOS auto-zoom on focus
+const INPUT =
+  "w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-black/10 transition-shadow";
+
+const TEXTAREA = INPUT + " resize-none";
+
+function SectionCard({
+  title,
+  bg,
+  border,
+  children,
+}: {
+  title: string;
+  bg: string;
+  border: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3 pt-1">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-        {label}
-      </span>
-      <div className="flex-1 h-px bg-border" />
+    <div className={`rounded-2xl border p-5 space-y-4 ${bg} ${border}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-foreground/40">
+        {title}
+      </p>
+      {children}
     </div>
   );
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 function sliderColor(value: number): string {
-  if (value >= 4) return "text-green-600";
+  if (value >= 4) return "text-emerald-700";
   if (value === 3) return "text-amber-600";
-  return "text-red-600";
+  return "text-rose-600";
 }
 
 function RatingSlider({
@@ -98,11 +116,9 @@ function RatingSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-foreground">{label}</label>
-        <span
-          className={`text-sm font-semibold tabular-nums w-8 text-right ${sliderColor(value)}`}
-        >
-          {value}/5
+        <label className="text-sm font-medium text-foreground/80">{label}</label>
+        <span className={`text-sm font-semibold tabular-nums ${sliderColor(value)}`}>
+          {value} / 5
         </span>
       </div>
       <input
@@ -112,14 +128,11 @@ function RatingSlider({
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-3 rounded-full cursor-pointer accent-primary"
+        className="w-full h-2 rounded-full cursor-pointer accent-blue-500"
       />
-      <div className="flex justify-between px-0.5 text-xs text-muted-foreground select-none">
-        <span>1</span>
-        <span>2</span>
-        <span>3</span>
-        <span>4</span>
-        <span>5</span>
+      <div className="flex justify-between text-[11px] text-foreground/30 select-none px-0.5">
+        <span>Low</span>
+        <span>High</span>
       </div>
     </div>
   );
@@ -132,28 +145,27 @@ function SegmentedSelector({
   value,
   onChange,
   labels = SEVERITY_LABELS,
+  selectedCls,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number) => void;
   labels?: string[];
+  selectedCls: string;
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-foreground">{label}</label>
-      <div
-        className="grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${labels.length}, 1fr)` }}
-      >
+      <label className="text-sm font-medium text-foreground/80">{label}</label>
+      <div className="flex gap-1.5">
         {labels.map((l, i) => (
           <button
             key={i}
             type="button"
             onClick={() => onChange(i)}
-            className={`py-3 rounded-lg text-xs font-medium border transition-colors ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
               value === i
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:border-foreground/30"
+                ? selectedCls
+                : "bg-white/60 text-foreground/40 border-black/8 hover:bg-white hover:text-foreground/70"
             }`}
           >
             {l}
@@ -170,7 +182,7 @@ const BRISTOL = [
   { n: 3, desc: "Cracked log" },
   { n: 4, desc: "Smooth" },
   { n: 5, desc: "Soft blobs" },
-  { n: 6, desc: "Fluffy pieces" },
+  { n: 6, desc: "Fluffy" },
   { n: 7, desc: "Liquid" },
 ];
 
@@ -181,9 +193,17 @@ function BristolSelector({
   value: number | null;
   onChange: (v: number) => void;
 }) {
+  function btnCls(n: number) {
+    if (value !== n)
+      return "bg-white/60 text-foreground/40 border-black/8 hover:bg-white hover:text-foreground/70";
+    if (n <= 2) return "bg-amber-100 text-amber-800 border-amber-200";
+    if (n <= 4) return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    return "bg-rose-100 text-rose-800 border-rose-200";
+  }
+
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-foreground">
+      <label className="text-sm font-medium text-foreground/80">
         Consistency (Bristol scale)
       </label>
       <div className="flex gap-1">
@@ -192,21 +212,13 @@ function BristolSelector({
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold border transition-colors ${
-              value === n
-                ? n <= 2
-                  ? "bg-amber-500 text-white border-amber-500"
-                  : n <= 4
-                  ? "bg-green-500 text-white border-green-500"
-                  : "bg-red-500 text-white border-red-500"
-                : "bg-background text-muted-foreground border-border hover:border-foreground/30"
-            }`}
+            className={`flex-1 py-3.5 rounded-xl text-sm font-semibold border transition-all active:scale-95 ${btnCls(n)}`}
           >
             {n}
           </button>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-foreground/40">
         {value != null
           ? `${BRISTOL[value - 1].desc} · ${value <= 2 ? "constipated" : value <= 4 ? "normal" : "loose"}`
           : "1–2 hard · 3–4 normal · 5–7 loose"}
@@ -231,22 +243,22 @@ function NumberStepper({
   const display = value ?? 0;
   return (
     <div className="flex items-center justify-between">
-      <label className="text-sm font-medium text-foreground">{label}</label>
+      <label className="text-sm font-medium text-foreground/80">{label}</label>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => onChange(Math.max(min, display - 1))}
-          className="size-11 rounded-lg border border-border bg-background text-foreground text-xl font-medium hover:bg-muted transition-colors flex items-center justify-center"
+          className="size-11 rounded-xl border border-black/10 bg-white text-foreground text-xl font-medium hover:bg-white/80 active:scale-95 transition-all flex items-center justify-center"
         >
           −
         </button>
-        <span className="text-base font-semibold tabular-nums w-6 text-center text-foreground">
+        <span className="text-lg font-semibold tabular-nums w-7 text-center text-foreground">
           {value ?? "–"}
         </span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, display + 1))}
-          className="size-11 rounded-lg border border-border bg-background text-foreground text-xl font-medium hover:bg-muted transition-colors flex items-center justify-center"
+          className="size-11 rounded-xl border border-black/10 bg-white text-foreground text-xl font-medium hover:bg-white/80 active:scale-95 transition-all flex items-center justify-center"
         >
           +
         </button>
@@ -265,27 +277,28 @@ function YesNoSelector({
   onChange: (v: boolean | null) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <label className="text-sm font-medium text-foreground">{label}</label>
-      <div className="flex gap-2 shrink-0">
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-foreground/80">{label}</label>
+      <div className="flex rounded-xl border border-black/10 overflow-hidden bg-white/60">
         <button
           type="button"
           onClick={() => onChange(value === true ? null : true)}
-          className={`px-6 py-3 rounded-lg text-sm font-medium border transition-colors ${
+          className={`flex-1 py-3.5 text-sm font-semibold transition-all active:scale-95 ${
             value === true
-              ? "bg-green-500 text-white border-green-500"
-              : "bg-background text-muted-foreground border-border hover:border-foreground/30"
+              ? "bg-emerald-100 text-emerald-800"
+              : "text-foreground/40 hover:bg-white/80 hover:text-foreground/70"
           }`}
         >
           Yes
         </button>
+        <div className="w-px bg-black/8" />
         <button
           type="button"
           onClick={() => onChange(value === false ? null : false)}
-          className={`px-6 py-3 rounded-lg text-sm font-medium border transition-colors ${
+          className={`flex-1 py-3.5 text-sm font-semibold transition-all active:scale-95 ${
             value === false
-              ? "bg-red-500 text-white border-red-500"
-              : "bg-background text-muted-foreground border-border hover:border-foreground/30"
+              ? "bg-rose-100 text-rose-800"
+              : "text-foreground/40 hover:bg-white/80 hover:text-foreground/70"
           }`}
         >
           No
@@ -403,62 +416,71 @@ function TodayForm({
     router.refresh();
   }
 
+  const sleepDuration = calcSleepHours(sleptAt, wokeAt);
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-xl border border-border bg-card p-5 space-y-6 shadow-xs"
-    >
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Date header */}
+      <div className="px-1 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">
           {isEdit ? "Today's log" : "Log today"}
         </h2>
-        <span className="text-xs text-muted-foreground">{formatDate(todayStr())}</span>
+        <span className="text-sm text-foreground/40">{formatDate(todayStr())}</span>
       </div>
 
-      {/* Wellbeing */}
-      <div className="space-y-5">
-        <SectionHeader label="Wellbeing" />
+      {/* ── Wellbeing ─────────────────────────────────────────── */}
+      <SectionCard title="Wellbeing" bg="bg-blue-50" border="border-blue-100/80">
         <RatingSlider label="Energy" value={energy} onChange={setEnergy} />
         <RatingSlider label="Mood" value={mood} onChange={setMood} />
         <RatingSlider label="Pain level" value={painLevel} onChange={setPainLevel} />
-      </div>
+      </SectionCard>
 
-      {/* GI Symptoms */}
-      <div className="space-y-4">
-        <SectionHeader label="GI Symptoms" />
+      {/* ── GI Symptoms ───────────────────────────────────────── */}
+      <SectionCard title="GI Symptoms" bg="bg-rose-50" border="border-rose-100/80">
         <SegmentedSelector
           label="Stomach pain"
           value={stomachPain}
           onChange={setStomachPain}
+          selectedCls="bg-rose-200 text-rose-900 border-rose-300"
         />
-        <SegmentedSelector label="Bloating" value={bloating} onChange={setBloating} />
-        <SegmentedSelector label="Nausea" value={nausea} onChange={setNausea} />
+        <SegmentedSelector
+          label="Bloating"
+          value={bloating}
+          onChange={setBloating}
+          selectedCls="bg-rose-200 text-rose-900 border-rose-300"
+        />
+        <SegmentedSelector
+          label="Nausea"
+          value={nausea}
+          onChange={setNausea}
+          selectedCls="bg-rose-200 text-rose-900 border-rose-300"
+        />
         <SegmentedSelector
           label="Loose stools"
           value={looseStools}
           onChange={setLooseStools}
+          selectedCls="bg-rose-200 text-rose-900 border-rose-300"
         />
         <SegmentedSelector
           label="Constipation"
           value={constipation}
           onChange={setConstipation}
+          selectedCls="bg-rose-200 text-rose-900 border-rose-300"
         />
-      </div>
+      </SectionCard>
 
-      {/* Bowel Movements */}
-      <div className="space-y-4">
-        <SectionHeader label="Bowel Movements" />
+      {/* ── Bowel Movements ───────────────────────────────────── */}
+      <SectionCard title="Bowel Movements" bg="bg-amber-50" border="border-amber-100/80">
         <NumberStepper
           label="Frequency today"
           value={bmFrequency}
           onChange={setBmFrequency}
         />
         <BristolSelector value={bmConsistency} onChange={setBmConsistency} />
-      </div>
+      </SectionCard>
 
-      {/* Food */}
-      <div className="space-y-4">
-        <SectionHeader label="Food" />
+      {/* ── Food ──────────────────────────────────────────────── */}
+      <SectionCard title="Food" bg="bg-emerald-50" border="border-emerald-100/80">
         {(
           [
             ["Breakfast", breakfast, setBreakfast, "What did she have for breakfast?"],
@@ -467,17 +489,17 @@ function TodayForm({
             ["Evening snack", eveningSnack, setEveningSnack, "Evening snack…"],
             ["Dinner", dinner, setDinner, "What did she have for dinner?"],
           ] as [string, string, (v: string) => void, string][]
-        ).map(([label, value, setter, placeholder]) => (
-          <div key={label}>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              {label}
+        ).map(([lbl, val, setter, ph]) => (
+          <div key={lbl}>
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">
+              {lbl}
             </label>
             <input
               type="text"
-              value={value}
-              onChange={(e) => setter(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-              placeholder={placeholder}
+              value={val}
+              onChange={(ev) => setter(ev.target.value)}
+              className={INPUT}
+              placeholder={ph}
             />
           </div>
         ))}
@@ -488,145 +510,145 @@ function TodayForm({
         />
         {junkSugarFlag && (
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">
               What / how much?
             </label>
             <input
               type="text"
               value={junkSugarDetails}
-              onChange={(e) => setJunkSugarDetails(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+              onChange={(ev) => setJunkSugarDetails(ev.target.value)}
+              className={INPUT}
               placeholder="e.g. 2 cookies, juice box…"
             />
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      {/* Activity & Sleep */}
-      <div className="space-y-4">
-        <SectionHeader label="Activity & Sleep" />
+      {/* ── Activity & Sleep ──────────────────────────────────── */}
+      <SectionCard title="Activity & Sleep" bg="bg-violet-50" border="border-violet-100/80">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="block text-sm font-medium text-foreground/80 mb-1.5">
             Exercise
           </label>
           <input
             type="text"
             value={exercise}
-            onChange={(e) => setExercise(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+            onChange={(ev) => setExercise(ev.target.value)}
+            className={INPUT}
             placeholder="e.g. 30 min walk, PE class, none"
           />
         </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">
               Fell asleep
             </label>
             <input
               type="time"
               value={sleptAt}
-              onChange={(e) => setSleptAt(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+              onChange={(ev) => setSleptAt(ev.target.value)}
+              className={INPUT}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">
               Woke up
             </label>
             <input
               type="time"
               value={wokeAt}
-              onChange={(e) => setWokeAt(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+              onChange={(ev) => setWokeAt(ev.target.value)}
+              className={INPUT}
             />
           </div>
         </div>
-        {calcSleepHours(sleptAt, wokeAt) != null && (
-          <p className="text-sm text-muted-foreground">
+
+        {sleepDuration != null && (
+          <p className="text-sm text-foreground/50">
             Sleep duration:{" "}
-            <span className="font-medium text-foreground">
-              {calcSleepHours(sleptAt, wokeAt)} hrs
-            </span>
+            <span className="font-semibold text-foreground/80">{sleepDuration} hrs</span>
           </p>
         )}
+
         <SegmentedSelector
           label="Sleep quality"
           value={sleepQuality}
           onChange={setSleepQuality}
           labels={["Poor", "Fair", "Good", "Great"]}
+          selectedCls="bg-violet-200 text-violet-900 border-violet-300"
         />
-      </div>
+      </SectionCard>
 
-      {/* Medication */}
-      <div className="space-y-4">
-        <SectionHeader label="Medication" />
+      {/* ── Medication ────────────────────────────────────────── */}
+      <SectionCard title="Medication" bg="bg-sky-50" border="border-sky-100/80">
         <YesNoSelector
           label="Meds taken as prescribed?"
           value={medicationTaken}
           onChange={setMedicationTaken}
         />
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="block text-sm font-medium text-foreground/80 mb-1.5">
             Medications & supplements given
           </label>
           <textarea
             value={medicationDetails}
-            onChange={(e) => setMedicationDetails(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
+            onChange={(ev) => setMedicationDetails(ev.target.value)}
+            className={TEXTAREA}
             rows={2}
             placeholder="e.g. Azathioprine 50mg, Vitamin D, iron…"
           />
         </div>
-      </div>
+      </SectionCard>
 
-      {/* School & Skills */}
-      <div className="space-y-4">
-        <SectionHeader label="School & Skills" />
+      {/* ── School & Skills ───────────────────────────────────── */}
+      <SectionCard title="School & Skills" bg="bg-teal-50" border="border-teal-100/80">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="block text-sm font-medium text-foreground/80 mb-1.5">
             School notes
           </label>
           <textarea
             value={schoolNotes}
-            onChange={(e) => setSchoolNotes(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
+            onChange={(ev) => setSchoolNotes(ev.target.value)}
+            className={TEXTAREA}
             rows={2}
             placeholder="How was school today?"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="block text-sm font-medium text-foreground/80 mb-1.5">
             Skills & development
           </label>
           <textarea
             value={skillsNotes}
-            onChange={(e) => setSkillsNotes(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
+            onChange={(ev) => setSkillsNotes(ev.target.value)}
+            className={TEXTAREA}
             rows={2}
             placeholder="New skills, milestones, therapy notes…"
           />
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Notes */}
-      <div className="space-y-3">
-        <SectionHeader label="Notes" />
+      {/* ── Notes ─────────────────────────────────────────────── */}
+      <SectionCard title="Notes" bg="bg-slate-50" border="border-slate-200/80">
         <textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
+          onChange={(ev) => setNotes(ev.target.value)}
+          className={TEXTAREA}
           rows={3}
           placeholder="Anything else worth noting…"
         />
-      </div>
+      </SectionCard>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="px-1 text-sm text-destructive">{error}</p>}
       {saved && (
-        <p className="text-sm text-green-600">{isEdit ? "Updated." : "Saved."}</p>
+        <p className="px-1 text-sm text-emerald-600 font-medium">
+          {isEdit ? "Updated." : "Saved."}
+        </p>
       )}
 
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Saving…" : isEdit ? "Update" : "Save today's log"}
+      <Button type="submit" disabled={loading} className="w-full h-12 text-base rounded-xl">
+        {loading ? "Saving…" : isEdit ? "Update today's log" : "Save today's log"}
       </Button>
     </form>
   );
@@ -635,7 +657,9 @@ function TodayForm({
 // ─── Log List ─────────────────────────────────────────────────────────────────
 
 function pillCls(good: boolean): string {
-  return good ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
+  return good
+    ? "bg-emerald-100 text-emerald-800"
+    : "bg-rose-100 text-rose-800";
 }
 
 function LogList({ logs }: { logs: DailyEntry[] }) {
@@ -653,7 +677,7 @@ function LogList({ logs }: { logs: DailyEntry[] }) {
       {logs.map((log) => (
         <div
           key={log.id}
-          className="rounded-xl border border-border bg-card p-4 space-y-2"
+          className="rounded-2xl border border-border bg-card p-4 space-y-2"
         >
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <p className="text-sm font-medium text-foreground shrink-0">
@@ -712,9 +736,9 @@ export default function DailyTrackerClient({
   logs: DailyEntry[];
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+    <div className="min-h-screen bg-[#f2f2f7]">
+      <header className="border-b border-black/8 bg-white/80 backdrop-blur-sm px-4 py-4 sticky top-0 z-10">
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
@@ -722,13 +746,13 @@ export default function DailyTrackerClient({
             >
               <ArrowLeft className="size-4" />
             </Link>
-            <h1 className="text-xl font-semibold text-foreground">Daily Tracker</h1>
+            <h1 className="text-lg font-semibold text-foreground">Daily Tracker</h1>
           </div>
           <SignOutButton />
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-xl mx-auto px-4 py-5 space-y-6 pb-10">
         <TodayForm
           key={todayEntry?.id ?? "new"}
           todayEntry={todayEntry}
@@ -737,7 +761,9 @@ export default function DailyTrackerClient({
 
         {logs.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-semibold text-foreground">Last 14 days</h2>
+            <h2 className="text-sm font-semibold text-foreground/50 uppercase tracking-wider px-1">
+              Last 14 days
+            </h2>
             <LogList logs={logs} />
           </section>
         )}
