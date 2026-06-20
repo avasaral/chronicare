@@ -1,5 +1,10 @@
 # ChroniCare — Design Decisions
 
+## Documentation
+
+### PRD is repo-canonical
+`ChroniCare_PRD_v1.md` lives in the repo root alongside this file and CLAUDE.md (added 2026-06-20, committed manually outside of feature work). The repo copy is the source of truth — any Claude.ai project knowledge copy is downstream and should be refreshed from the repo, not the reverse. If the PRD changes, the change happens in the repo first.
+
 ## Architecture decisions
 
 ### dose_history as source of truth for current dose
