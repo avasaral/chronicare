@@ -16,6 +16,7 @@ export type LabRow = {
   unit: string | null;
   reference_range: string | null;
   flag: "normal" | "low" | "high";
+  category?: string | null;
 };
 
 export default async function LabsPage() {

@@ -27,10 +27,11 @@ const SYSTEM_PROMPT =
 Return ONLY a JSON object with no other text:
 {
   "report_date": "YYYY-MM-DD",
-  "results": [{"test_name": "...", "value": "...", "unit": "...", "reference_range": "...", "flag": "normal|low|high"}]
+  "results": [{"test_name": "...", "value": "...", "unit": "...", "reference_range": "...", "flag": "normal|low|high", "category": "..."}]
 }
 For report_date use the date printed on the lab report in YYYY-MM-DD format. If you cannot find a date, return null.
-For flag use "normal", "low", or "high". If reference_range is not available set it to null.`;
+For flag use "normal", "low", or "high". If reference_range is not available set it to null.
+For category use the standard lab panel name (e.g. "CBC", "LFT", "Inflammatory Markers", "Electrolytes", "Lipid Profile", "Thyroid Function", "Renal Function") — infer from the test name and panel groupings visible in the report. Do not use a fixed list; choose whatever category is clinically appropriate.`;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();

@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, ChevronUp, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -33,6 +32,7 @@ type TrendPoint = { date: string; displayDate: string; value: number };
 type TestTrend = {
   testName: string;
   unit: string | null;
+  category: string;
   points: TrendPoint[];
   refLow: number | null;
   refHigh: number | null;
@@ -41,7 +41,7 @@ type TestTrend = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -68,15 +68,12 @@ function flagBadgeCls(flag: string): string {
 function parseRefRange(ref: string | null): { low: number; high: number } | null {
   if (!ref) return null;
 
-  // less-than: "<N" or "< N"
   const lt = ref.match(/^[<＜]\s*([\d.]+)/);
   if (lt) return { low: 0, high: parseFloat(lt[1]) };
 
-  // "upto N ..."
   const upto = ref.match(/upto\s+([\d.]+)/i);
   if (upto) return { low: 0, high: parseFloat(upto[1]) };
 
-  // range: first two numbers separated by dash (handles "N-M", "N - M", "00 - 01%", "N - M units")
   const range = ref.match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
   if (range) {
     const low = parseFloat(range[1]);
@@ -84,11 +81,10 @@ function parseRefRange(ref: string | null): { low: number; high: number } | null
     if (!isNaN(low) && !isNaN(high) && high >= low) return { low, high };
   }
 
-  return null; // qualitative (e.g. "Non-Reactive")
+  return null;
 }
 
-// Groups lab results by test_name, averaging values when multiple reports share
-// the same report_date. Returns only tests with 2+ distinct dates.
+// Groups results by test_name with 2+ distinct dates; carries category forward.
 function buildTrendData(results: PreviousResult[]): TestTrend[] {
   const sorted = [...results].sort((a, b) =>
     a.report_date.localeCompare(b.report_date)
@@ -96,19 +92,26 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
 
   const map = new Map<
     string,
-    { date: string; value: number; ref: string | null; unit: string | null }[]
+    {
+      date: string;
+      value: number;
+      ref: string | null;
+      unit: string | null;
+      category: string | null;
+    }[]
   >();
 
   for (const result of sorted) {
     for (const row of result.extracted_json ?? []) {
       const v = parseFloat(row.value);
-      if (isNaN(v)) continue; // skip qualitative values
+      if (isNaN(v)) continue;
       if (!map.has(row.test_name)) map.set(row.test_name, []);
       map.get(row.test_name)!.push({
         date: result.report_date,
         value: v,
         ref: row.reference_range ?? null,
         unit: row.unit ?? null,
+        category: row.category ?? null,
       });
     }
   }
@@ -119,7 +122,6 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
     const distinctDates = [...new Set(entries.map((e) => e.date))];
     if (distinctDates.length < 2) continue;
 
-    // Average values per date (handles 3 labs uploading same test on same day)
     const byDate = new Map<
       string,
       { sum: number; count: number; ref: string | null; unit: string | null }
@@ -140,20 +142,27 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
         value: Math.round((sum / count) * 100) / 100,
       });
     }
+    points.sort((a, b) => a.date.localeCompare(b.date));
 
     const last = entries[entries.length - 1];
     const parsed = parseRefRange(last.ref);
+    const category = entries.find((e) => e.category)?.category ?? "Other";
 
     trends.push({
       testName,
       unit: last.unit,
+      category,
       points,
       refLow: parsed?.low ?? null,
       refHigh: parsed?.high ?? null,
     });
   }
 
-  return trends.sort((a, b) => a.testName.localeCompare(b.testName));
+  return trends.sort(
+    (a, b) =>
+      a.category.localeCompare(b.category) ||
+      a.testName.localeCompare(b.testName)
+  );
 }
 
 // ─── Mini trend chart ─────────────────────────────────────────────────────────
@@ -167,7 +176,6 @@ function MiniChart({ trend }: { trend: TestTrend }) {
     (refHigh == null || latestVal <= refHigh);
   const lineColor = inRange ? "#3b82f6" : "#f43f5e";
 
-  // Y domain: expand to include the reference band with padding
   const allVals: number[] = [
     ...points.map((p) => p.value),
     ...(refLow != null ? [refLow] : []),
@@ -258,7 +266,7 @@ function MiniChart({ trend }: { trend: TestTrend }) {
   );
 }
 
-// ─── Trend section ────────────────────────────────────────────────────────────
+// ─── Trend section (category-grouped) ────────────────────────────────────────
 
 function TrendSection({ results }: { results: PreviousResult[] }) {
   if (results.length < 2) return null;
@@ -267,11 +275,10 @@ function TrendSection({ results }: { results: PreviousResult[] }) {
   const distinctDates = [...new Set(results.map((r) => r.report_date))];
   const allSameDate = distinctDates.length === 1;
 
-  return (
-    <section className="space-y-3">
-      <h2 className="font-semibold text-foreground">Lab trends</h2>
-
-      {trends.length === 0 ? (
+  if (trends.length === 0) {
+    return (
+      <section className="space-y-3">
+        <h2 className="font-semibold text-foreground">Lab trends</h2>
         <div className="rounded-2xl border border-slate-100 bg-white px-5 py-6">
           <p className="text-sm text-muted-foreground">
             {allSameDate
@@ -279,13 +286,170 @@ function TrendSection({ results }: { results: PreviousResult[] }) {
               : "No tests have results across multiple dates yet."}
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {trends.map((t) => (
-            <MiniChart key={t.testName} trend={t} />
-          ))}
+      </section>
+    );
+  }
+
+  const byCategory = new Map<string, TestTrend[]>();
+  for (const t of trends) {
+    if (!byCategory.has(t.category)) byCategory.set(t.category, []);
+    byCategory.get(t.category)!.push(t);
+  }
+  const sortedCategories = [...byCategory.keys()].sort();
+
+  return (
+    <section className="space-y-5">
+      <h2 className="font-semibold text-foreground">Lab trends</h2>
+      {sortedCategories.map((cat) => (
+        <div key={cat} className="space-y-3">
+          <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest">
+            {cat}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {byCategory.get(cat)!.map((t) => (
+              <MiniChart key={t.testName} trend={t} />
+            ))}
+          </div>
         </div>
-      )}
+      ))}
+    </section>
+  );
+}
+
+// ─── Cross-date table ─────────────────────────────────────────────────────────
+
+function CrossDateTable({ results }: { results: PreviousResult[] }) {
+  if (results.length === 0) return null;
+
+  const sorted = [...results].sort((a, b) =>
+    a.report_date.localeCompare(b.report_date)
+  );
+  const dates = [...new Set(sorted.map((r) => r.report_date))].sort();
+
+  type CellData = {
+    value: string;
+    unit: string | null;
+    flag: "normal" | "low" | "high";
+  };
+
+  const testIndex = new Map<
+    string,
+    { category: string; cells: Map<string, CellData> }
+  >();
+
+  for (const result of sorted) {
+    for (const row of result.extracted_json ?? []) {
+      if (!testIndex.has(row.test_name)) {
+        testIndex.set(row.test_name, {
+          category: row.category ?? "Other",
+          cells: new Map(),
+        });
+      }
+      const entry = testIndex.get(row.test_name)!;
+      // Upgrade "Other" placeholder once a real category is available
+      if (row.category && entry.category === "Other") {
+        entry.category = row.category;
+      }
+      entry.cells.set(result.report_date, {
+        value: row.value,
+        unit: row.unit ?? null,
+        flag: row.flag,
+      });
+    }
+  }
+
+  const byCategory = new Map<string, string[]>();
+  for (const [testName, { category }] of testIndex) {
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category)!.push(testName);
+  }
+  const sortedCategories = [...byCategory.keys()].sort();
+
+  return (
+    <section className="space-y-3">
+      <h2 className="font-semibold text-foreground">All results by date</h2>
+      <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+        {sortedCategories.map((cat, catIdx) => {
+          const testNames = byCategory.get(cat)!.sort();
+          return (
+            <div key={cat}>
+              <div
+                className={`px-5 py-2 bg-slate-50 ${
+                  catIdx > 0 ? "border-t border-slate-100" : ""
+                }`}
+              >
+                <span className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest">
+                  {cat}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left px-5 py-2 font-medium text-muted-foreground text-xs">
+                        Test
+                      </th>
+                      {dates.map((d) => (
+                        <th
+                          key={d}
+                          className="text-right px-4 py-2 font-medium text-muted-foreground text-xs tabular-nums whitespace-nowrap"
+                        >
+                          {formatDateShort(d)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {testNames.map((testName) => {
+                      const { cells } = testIndex.get(testName)!;
+                      return (
+                        <tr
+                          key={testName}
+                          className="border-b border-slate-50 last:border-0"
+                        >
+                          <td className="px-5 py-2.5 text-foreground text-sm">
+                            {testName}
+                          </td>
+                          {dates.map((d) => {
+                            const cell = cells.get(d) ?? null;
+                            if (!cell) {
+                              return (
+                                <td
+                                  key={d}
+                                  className="px-4 py-2.5 text-right text-muted-foreground/30 text-sm tabular-nums"
+                                >
+                                  —
+                                </td>
+                              );
+                            }
+                            const outOfRange = cell.flag !== "normal";
+                            return (
+                              <td
+                                key={d}
+                                className={`px-4 py-2.5 text-right tabular-nums text-sm font-medium ${
+                                  outOfRange ? "text-rose-600" : "text-foreground"
+                                }`}
+                              >
+                                {cell.value}
+                                {cell.unit ? ` ${cell.unit}` : ""}
+                                {outOfRange && (
+                                  <span className="ml-0.5 text-xs">
+                                    {cell.flag === "high" ? "↑" : "↓"}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -346,6 +510,7 @@ function PreviousCard({ result }: { result: PreviousResult }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reextracting, setReextracting] = useState(false);
   const rows: LabRow[] = Array.isArray(result.extracted_json)
     ? result.extracted_json
     : [];
@@ -357,6 +522,22 @@ function PreviousCard({ result }: { result: PreviousResult }) {
     await supabase.from("lab_results").delete().eq("id", result.id);
     router.refresh();
   }
+
+  async function handleReextract() {
+    setReextracting(true);
+    try {
+      const res = await fetch("/api/reextract-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: result.id }),
+      });
+      if (res.ok) router.refresh();
+    } finally {
+      setReextracting(false);
+    }
+  }
+
+  const hasCategories = rows.some((r) => r.category);
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
@@ -372,6 +553,7 @@ function PreviousCard({ result }: { result: PreviousResult }) {
             <span className="text-xs text-muted-foreground">
               {formatDate(result.report_date)} · {rows.length} result
               {rows.length !== 1 ? "s" : ""}
+              {!hasCategories && " · no categories yet"}
             </span>
           </div>
           {expanded ? (
@@ -380,13 +562,22 @@ function PreviousCard({ result }: { result: PreviousResult }) {
             <ChevronDown className="size-4 text-muted-foreground shrink-0" />
           )}
         </button>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="ml-4 text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
-        >
-          {deleting ? "Deleting…" : "Delete"}
-        </button>
+        <div className="ml-4 flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleReextract}
+            disabled={reextracting || deleting}
+            className="text-xs text-blue-500 hover:text-blue-400 disabled:opacity-40 transition-colors"
+          >
+            {reextracting ? "Updating…" : "Re-extract categories"}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting || reextracting}
+            className="text-xs text-destructive hover:text-destructive/80 disabled:opacity-40 transition-colors"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
       </div>
       {expanded && rows.length > 0 && (
         <div className="px-5 pb-5 border-t border-border pt-4">
@@ -532,6 +723,8 @@ export default function LabsClient({
         )}
 
         <TrendSection results={previousResults} />
+
+        <CrossDateTable results={previousResults} />
 
         {previousResults.length > 0 && (
           <section className="space-y-3">
