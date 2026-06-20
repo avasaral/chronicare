@@ -23,6 +23,7 @@ type PreviousResult = {
   id: string;
   report_date: string;
   source_filename: string;
+  source_lab: string | null;
   extracted_json: LabRow[];
   created_at: string;
 };
@@ -30,13 +31,26 @@ type PreviousResult = {
 type TrendPoint = { date: string; displayDate: string; value: number };
 
 type TestTrend = {
-  testName: string;
+  displayName: string;
   unit: string | null;
   category: string;
   points: TrendPoint[];
   refLow: number | null;
   refHigh: number | null;
 };
+
+// ─── Test-name normalization (display/grouping only — stored data unchanged) ──
+
+function testKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// Most-frequent original form wins; ties resolved by original order.
+function pickDisplayName(variants: string[]): string {
+  const freq = new Map<string, number>();
+  for (const n of variants) freq.set(n, (freq.get(n) ?? 0) + 1);
+  return [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,9 +76,8 @@ function flagBadgeCls(flag: string): string {
   return "bg-red-100 text-red-800";
 }
 
-// Handles all reference_range formats seen in real data:
-//   "N-M", "N - M", "N - M units (annotation)"
-//   "<N", "upto N ...", "Non-Reactive" (returns null)
+// Handles real reference_range formats: "N-M", "N - M", "N - M unit (note)",
+// "<N", "upto N ...", "Non-Reactive" (qualitative → returns null).
 function parseRefRange(ref: string | null): { low: number; high: number } | null {
   if (!ref) return null;
 
@@ -84,12 +97,20 @@ function parseRefRange(ref: string | null): { low: number; high: number } | null
   return null;
 }
 
-// Groups results by test_name with 2+ distinct dates; carries category forward.
+const UNCATEGORIZED = "Other / Uncategorized";
+
+function resolveCategory(cat: string | null | undefined): string {
+  return cat ?? UNCATEGORIZED;
+}
+
+// ─── Trend data builder ───────────────────────────────────────────────────────
+
 function buildTrendData(results: PreviousResult[]): TestTrend[] {
   const sorted = [...results].sort((a, b) =>
     a.report_date.localeCompare(b.report_date)
   );
 
+  // keyed by normalised test name
   const map = new Map<
     string,
     {
@@ -97,7 +118,8 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
       value: number;
       ref: string | null;
       unit: string | null;
-      category: string | null;
+      category: string;
+      originalName: string;
     }[]
   >();
 
@@ -105,23 +127,26 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
     for (const row of result.extracted_json ?? []) {
       const v = parseFloat(row.value);
       if (isNaN(v)) continue;
-      if (!map.has(row.test_name)) map.set(row.test_name, []);
-      map.get(row.test_name)!.push({
+      const key = testKey(row.test_name);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({
         date: result.report_date,
         value: v,
         ref: row.reference_range ?? null,
         unit: row.unit ?? null,
-        category: row.category ?? null,
+        category: resolveCategory(row.category),
+        originalName: row.test_name,
       });
     }
   }
 
   const trends: TestTrend[] = [];
 
-  for (const [testName, entries] of map) {
+  for (const [, entries] of map) {
     const distinctDates = [...new Set(entries.map((e) => e.date))];
     if (distinctDates.length < 2) continue;
 
+    // Average values for the same date
     const byDate = new Map<
       string,
       { sum: number; count: number; ref: string | null; unit: string | null }
@@ -144,12 +169,20 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
     }
     points.sort((a, b) => a.date.localeCompare(b.date));
 
+    // Reference band from the most-recent report's range for this test
     const last = entries[entries.length - 1];
     const parsed = parseRefRange(last.ref);
-    const category = entries.find((e) => e.category)?.category ?? "Other";
+
+    // Display name = most common original casing
+    const displayName = pickDisplayName(entries.map((e) => e.originalName));
+
+    // Category = first non-uncategorized value
+    const category =
+      entries.find((e) => e.category !== UNCATEGORIZED)?.category ??
+      UNCATEGORIZED;
 
     trends.push({
-      testName,
+      displayName,
       unit: last.unit,
       category,
       points,
@@ -161,14 +194,14 @@ function buildTrendData(results: PreviousResult[]): TestTrend[] {
   return trends.sort(
     (a, b) =>
       a.category.localeCompare(b.category) ||
-      a.testName.localeCompare(b.testName)
+      a.displayName.localeCompare(b.displayName)
   );
 }
 
 // ─── Mini trend chart ─────────────────────────────────────────────────────────
 
 function MiniChart({ trend }: { trend: TestTrend }) {
-  const { testName, unit, points, refLow, refHigh } = trend;
+  const { displayName, unit, points, refLow, refHigh } = trend;
 
   const latestVal = points[points.length - 1].value;
   const inRange =
@@ -191,7 +224,7 @@ function MiniChart({ trend }: { trend: TestTrend }) {
     <div className="rounded-2xl border border-slate-100 bg-white p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-foreground leading-tight">
-          {testName}
+          {displayName}
         </p>
         <span
           className={`text-xs font-semibold shrink-0 tabular-nums ${
@@ -242,7 +275,7 @@ function MiniChart({ trend }: { trend: TestTrend }) {
             }}
             formatter={(v: unknown) => [
               `${v}${unit ? ` ${unit}` : ""}`,
-              testName,
+              displayName,
             ]}
           />
           <Line
@@ -266,6 +299,20 @@ function MiniChart({ trend }: { trend: TestTrend }) {
   );
 }
 
+// ─── Category section header ──────────────────────────────────────────────────
+
+function CategoryHeader({ label, first }: { label: string; first: boolean }) {
+  return (
+    <h3
+      className={`text-[11px] font-semibold text-foreground/40 uppercase tracking-widest ${
+        first ? "" : "mt-2"
+      }`}
+    >
+      {label}
+    </h3>
+  );
+}
+
 // ─── Trend section (category-grouped) ────────────────────────────────────────
 
 function TrendSection({ results }: { results: PreviousResult[] }) {
@@ -282,7 +329,7 @@ function TrendSection({ results }: { results: PreviousResult[] }) {
         <div className="rounded-2xl border border-slate-100 bg-white px-5 py-6">
           <p className="text-sm text-muted-foreground">
             {allSameDate
-              ? `All ${results.length} uploads share the same report date (${formatDate(distinctDates[0])}). Trends appear once you upload reports from different dates.`
+              ? `All ${results.length} uploads share the same report date (${formatDate(distinctDates[0])}). Trends appear once you have reports from different dates.`
               : "No tests have results across multiple dates yet."}
           </p>
         </div>
@@ -300,14 +347,12 @@ function TrendSection({ results }: { results: PreviousResult[] }) {
   return (
     <section className="space-y-5">
       <h2 className="font-semibold text-foreground">Lab trends</h2>
-      {sortedCategories.map((cat) => (
+      {sortedCategories.map((cat, i) => (
         <div key={cat} className="space-y-3">
-          <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest">
-            {cat}
-          </h3>
+          <CategoryHeader label={cat} first={i === 0} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {byCategory.get(cat)!.map((t) => (
-              <MiniChart key={t.testName} trend={t} />
+              <MiniChart key={t.displayName} trend={t} />
             ))}
           </div>
         </div>
@@ -324,7 +369,13 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
   const sorted = [...results].sort((a, b) =>
     a.report_date.localeCompare(b.report_date)
   );
-  const dates = [...new Set(sorted.map((r) => r.report_date))].sort();
+
+  // Column = one report (report_date + source_lab). Use row id as stable key.
+  const columns = sorted.map((r) => ({
+    id: r.id,
+    date: r.report_date,
+    lab: r.source_lab,
+  }));
 
   type CellData = {
     value: string;
@@ -332,25 +383,32 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
     flag: "normal" | "low" | "high";
   };
 
+  // normalizedKey → { displayName variants, category, cells: Map<reportId, CellData> }
   const testIndex = new Map<
     string,
-    { category: string; cells: Map<string, CellData> }
+    {
+      nameVariants: string[];
+      category: string;
+      cells: Map<string, CellData>;
+    }
   >();
 
   for (const result of sorted) {
     for (const row of result.extracted_json ?? []) {
-      if (!testIndex.has(row.test_name)) {
-        testIndex.set(row.test_name, {
-          category: row.category ?? "Other",
+      const key = testKey(row.test_name);
+      if (!testIndex.has(key)) {
+        testIndex.set(key, {
+          nameVariants: [],
+          category: resolveCategory(row.category),
           cells: new Map(),
         });
       }
-      const entry = testIndex.get(row.test_name)!;
-      // Upgrade "Other" placeholder once a real category is available
-      if (row.category && entry.category === "Other") {
+      const entry = testIndex.get(key)!;
+      entry.nameVariants.push(row.test_name);
+      if (row.category && entry.category === UNCATEGORIZED) {
         entry.category = row.category;
       }
-      entry.cells.set(result.report_date, {
+      entry.cells.set(result.id, {
         value: row.value,
         unit: row.unit ?? null,
         flag: row.flag,
@@ -358,21 +416,31 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
     }
   }
 
-  const byCategory = new Map<string, string[]>();
-  for (const [testName, { category }] of testIndex) {
+  const byCategory = new Map<string, string[]>(); // category → normalizedKeys
+  for (const [key, { category }] of testIndex) {
     if (!byCategory.has(category)) byCategory.set(category, []);
-    byCategory.get(category)!.push(testName);
+    byCategory.get(category)!.push(key);
   }
+
+  // Sort categories; within each, sort by display name
   const sortedCategories = [...byCategory.keys()].sort();
+  for (const [, keys] of byCategory) {
+    keys.sort((a, b) => {
+      const na = pickDisplayName(testIndex.get(a)!.nameVariants);
+      const nb = pickDisplayName(testIndex.get(b)!.nameVariants);
+      return na.localeCompare(nb);
+    });
+  }
 
   return (
     <section className="space-y-3">
       <h2 className="font-semibold text-foreground">All results by date</h2>
       <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
         {sortedCategories.map((cat, catIdx) => {
-          const testNames = byCategory.get(cat)!.sort();
+          const keys = byCategory.get(cat)!;
           return (
             <div key={cat}>
+              {/* Category row */}
               <div
                 className={`px-5 py-2 bg-slate-50 ${
                   catIdx > 0 ? "border-t border-slate-100" : ""
@@ -382,60 +450,74 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
                   {cat}
                 </span>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="text-left px-5 py-2 font-medium text-muted-foreground text-xs">
+                      <th className="text-left px-5 py-2.5 font-medium text-muted-foreground text-xs min-w-[140px]">
                         Test
                       </th>
-                      {dates.map((d) => (
+                      {columns.map((col) => (
                         <th
-                          key={d}
-                          className="text-right px-4 py-2 font-medium text-muted-foreground text-xs tabular-nums whitespace-nowrap"
+                          key={col.id}
+                          className="text-right px-4 py-2.5 font-medium text-muted-foreground text-xs tabular-nums whitespace-nowrap"
                         >
-                          {formatDateShort(d)}
+                          {formatDateShort(col.date)}
+                          {col.lab && (
+                            <div className="text-[10px] font-normal text-muted-foreground/40 mt-0.5 max-w-[88px] truncate ml-auto">
+                              {col.lab}
+                            </div>
+                          )}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {testNames.map((testName) => {
-                      const { cells } = testIndex.get(testName)!;
+                    {keys.map((key) => {
+                      const { nameVariants, cells } =
+                        testIndex.get(key)!;
+                      const label = pickDisplayName(nameVariants);
                       return (
                         <tr
-                          key={testName}
+                          key={key}
                           className="border-b border-slate-50 last:border-0"
                         >
                           <td className="px-5 py-2.5 text-foreground text-sm">
-                            {testName}
+                            {label}
                           </td>
-                          {dates.map((d) => {
-                            const cell = cells.get(d) ?? null;
+                          {columns.map((col) => {
+                            const cell = cells.get(col.id) ?? null;
                             if (!cell) {
                               return (
                                 <td
-                                  key={d}
+                                  key={col.id}
                                   className="px-4 py-2.5 text-right text-muted-foreground/30 text-sm tabular-nums"
                                 >
                                   —
                                 </td>
                               );
                             }
-                            const outOfRange = cell.flag !== "normal";
+                            const hi = cell.flag === "high";
+                            const lo = cell.flag === "low";
                             return (
                               <td
-                                key={d}
+                                key={col.id}
                                 className={`px-4 py-2.5 text-right tabular-nums text-sm font-medium ${
-                                  outOfRange ? "text-rose-600" : "text-foreground"
+                                  hi || lo
+                                    ? hi
+                                      ? "text-rose-600"
+                                      : "text-amber-600"
+                                    : "text-foreground"
                                 }`}
                               >
                                 {cell.value}
                                 {cell.unit ? ` ${cell.unit}` : ""}
-                                {outOfRange && (
-                                  <span className="ml-0.5 text-xs">
-                                    {cell.flag === "high" ? "↑" : "↓"}
-                                  </span>
+                                {hi && (
+                                  <span className="ml-0.5 text-xs">↑</span>
+                                )}
+                                {lo && (
+                                  <span className="ml-0.5 text-xs">↓</span>
                                 )}
                               </td>
                             );
@@ -454,7 +536,7 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
   );
 }
 
-// ─── Lab Results Table ────────────────────────────────────────────────────────
+// ─── Lab Results Table (per-report detail) ────────────────────────────────────
 
 function LabTable({ rows }: { rows: LabRow[] }) {
   return (
@@ -511,9 +593,12 @@ function PreviousCard({ result }: { result: PreviousResult }) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reextracting, setReextracting] = useState(false);
+  const [reextractError, setReextractError] = useState<string | null>(null);
+
   const rows: LabRow[] = Array.isArray(result.extracted_json)
     ? result.extracted_json
     : [];
+  const hasCategories = rows.some((r) => r.category);
 
   async function handleDelete() {
     if (!window.confirm("Are you sure? This cannot be undone.")) return;
@@ -525,19 +610,27 @@ function PreviousCard({ result }: { result: PreviousResult }) {
 
   async function handleReextract() {
     setReextracting(true);
+    setReextractError(null);
     try {
-      const res = await fetch("/api/reextract-categories", {
+      const res = await fetch("/api/reextract-lab", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: result.id }),
       });
-      if (res.ok) router.refresh();
+      const data = await res.json();
+      if (res.ok) {
+        router.refresh();
+      } else if (data.code === "NO_PDF") {
+        setReextractError(
+          "PDF not found in storage. Re-upload this report to get categories and lab name."
+        );
+      } else {
+        setReextractError(data.error ?? "Re-extraction failed.");
+      }
     } finally {
       setReextracting(false);
     }
   }
-
-  const hasCategories = rows.some((r) => r.category);
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
@@ -551,8 +644,9 @@ function PreviousCard({ result }: { result: PreviousResult }) {
               {result.source_filename}
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatDate(result.report_date)} · {rows.length} result
-              {rows.length !== 1 ? "s" : ""}
+              {formatDate(result.report_date)}
+              {result.source_lab && ` · ${result.source_lab}`}
+              {` · ${rows.length} result${rows.length !== 1 ? "s" : ""}`}
               {!hasCategories && " · no categories yet"}
             </span>
           </div>
@@ -568,7 +662,7 @@ function PreviousCard({ result }: { result: PreviousResult }) {
             disabled={reextracting || deleting}
             className="text-xs text-blue-500 hover:text-blue-400 disabled:opacity-40 transition-colors"
           >
-            {reextracting ? "Updating…" : "Re-extract categories"}
+            {reextracting ? "Re-extracting…" : "Re-extract"}
           </button>
           <button
             onClick={handleDelete}
@@ -579,6 +673,11 @@ function PreviousCard({ result }: { result: PreviousResult }) {
           </button>
         </div>
       </div>
+      {reextractError && (
+        <div className="px-5 pb-3 -mt-1">
+          <p className="text-xs text-destructive">{reextractError}</p>
+        </div>
+      )}
       {expanded && rows.length > 0 && (
         <div className="px-5 pb-5 border-t border-border pt-4">
           <LabTable rows={rows} />
@@ -637,7 +736,9 @@ function UploadSection({
       <h2 className="font-semibold text-foreground">Upload lab report</h2>
 
       <label
-        className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background p-8 cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/30 ${loading ? "pointer-events-none opacity-60" : ""}`}
+        className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background p-8 cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/30 ${
+          loading ? "pointer-events-none opacity-60" : ""
+        }`}
         onClick={() => !loading && inputRef.current?.click()}
       >
         <Upload className="size-8 text-muted-foreground" />
@@ -676,11 +777,25 @@ export default function LabsClient({
 }) {
   const router = useRouter();
   const [latestRows, setLatestRows] = useState<LabRow[] | null>(null);
+  const [reextractingAll, setReextractingAll] = useState(false);
 
   void userId;
 
   function handleResults(rows: LabRow[]) {
     setLatestRows(rows);
+    router.refresh();
+  }
+
+  async function handleReextractAll() {
+    setReextractingAll(true);
+    for (const r of previousResults) {
+      await fetch("/api/reextract-lab", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id }),
+      });
+    }
+    setReextractingAll(false);
     router.refresh();
   }
 
@@ -695,7 +810,9 @@ export default function LabsClient({
             >
               <ArrowLeft className="size-4" />
             </Link>
-            <h1 className="text-xl font-semibold text-foreground">Lab Results</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              Lab Results
+            </h1>
           </div>
           <SignOutButton />
         </div>
@@ -709,7 +826,8 @@ export default function LabsClient({
             <h2 className="font-semibold text-foreground">
               Extracted results
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({latestRows.length} test{latestRows.length !== 1 ? "s" : ""})
+                ({latestRows.length} test
+                {latestRows.length !== 1 ? "s" : ""})
               </span>
             </h2>
             {latestRows.length > 0 ? (
@@ -722,18 +840,31 @@ export default function LabsClient({
           </section>
         )}
 
-        <TrendSection results={previousResults} />
-
-        <CrossDateTable results={previousResults} />
-
         {previousResults.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-semibold text-foreground">Previous uploads</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-foreground">
+                Previous uploads
+              </h2>
+              <button
+                onClick={handleReextractAll}
+                disabled={reextractingAll}
+                className="text-xs text-blue-500 hover:text-blue-400 disabled:opacity-40 transition-colors"
+              >
+                {reextractingAll
+                  ? "Re-extracting all…"
+                  : "Re-extract all"}
+              </button>
+            </div>
             {previousResults.map((r) => (
               <PreviousCard key={r.id} result={r} />
             ))}
           </section>
         )}
+
+        <TrendSection results={previousResults} />
+
+        <CrossDateTable results={previousResults} />
       </main>
     </div>
   );

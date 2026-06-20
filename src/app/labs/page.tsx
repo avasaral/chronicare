@@ -7,6 +7,7 @@ type LabResult = {
   report_date: string;
   source_filename: string;
   extracted_json: LabRow[];
+  source_lab: string | null;
   created_at: string;
 };
 
@@ -29,7 +30,7 @@ export default async function LabsPage() {
 
   const { data } = await supabase
     .from("lab_results")
-    .select("id, report_date, source_filename, extracted_json, created_at")
+    .select("id, report_date, source_filename, extracted_json, source_lab, created_at")
     .order("created_at", { ascending: false });
 
   return <LabsClient userId={user.id} previousResults={data ?? []} />;

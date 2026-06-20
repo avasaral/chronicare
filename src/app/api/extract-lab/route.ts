@@ -1,37 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import {
+  LAB_SYSTEM_PROMPT,
+  parseDateFromFilename,
+  parseClaudeResponse,
+} from "@/lib/lab-extraction";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// Tries common Indian lab filename date formats as a last resort.
-// Prefers YYYY-MM-DD, then DD-MM-YYYY / DD.MM.YYYY / DD/MM/YYYY.
-function parseDateFromFilename(filename: string): string | null {
-  const iso = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-
-  const dmy = filename.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
-  if (dmy) {
-    const d = dmy[1].padStart(2, "0");
-    const m = dmy[2].padStart(2, "0");
-    const y = dmy[3];
-    const date = new Date(`${y}-${m}-${d}T00:00:00Z`);
-    if (!isNaN(date.getTime())) return `${y}-${m}-${d}`;
-  }
-
-  return null;
-}
-
-const SYSTEM_PROMPT =
-  `You are a medical document parser. Extract all lab test results and the report date from this document.
-Return ONLY a JSON object with no other text:
-{
-  "report_date": "YYYY-MM-DD",
-  "results": [{"test_name": "...", "value": "...", "unit": "...", "reference_range": "...", "flag": "normal|low|high", "category": "..."}]
-}
-For report_date use the date printed on the lab report in YYYY-MM-DD format. If you cannot find a date, return null.
-For flag use "normal", "low", or "high". If reference_range is not available set it to null.
-For category use the standard lab panel name (e.g. "CBC", "LFT", "Inflammatory Markers", "Electrolytes", "Lipid Profile", "Thyroid Function", "Renal Function") — infer from the test name and panel groupings visible in the report. Do not use a fixed list; choose whatever category is clinically appropriate.`;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -56,21 +32,23 @@ export async function POST(request: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
   const base64 = buffer.toString("base64");
+
   // Upload to Supabase Storage
   const storageFilename = `${user.id}/${crypto.randomUUID()}.pdf`;
   await supabase.storage
     .from("lab-reports")
     .upload(storageFilename, buffer, { contentType: "application/pdf" });
-  // Continue even if storage upload fails — the extraction is the critical path.
+  // Continue even if storage upload fails — extraction is the critical path.
 
   // Call Claude API with the PDF
   let extracted: unknown[];
   let reportDate: string;
+  let sourceLab: string | null;
   try {
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system: LAB_SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -101,14 +79,11 @@ export async function POST(request: NextRequest) {
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
-    const parsed = JSON.parse(raw);
-    // Accept both the new {report_date, results} shape and the legacy bare array
-    extracted = Array.isArray(parsed) ? parsed : parsed.results ?? [];
-    if (!Array.isArray(extracted)) throw new Error("Expected array");
+    const parsed = parseClaudeResponse(raw);
+    extracted = parsed.extracted;
+    sourceLab = parsed.sourceLab;
     reportDate =
-      (!Array.isArray(parsed) && typeof parsed.report_date === "string"
-        ? parsed.report_date
-        : null) ??
+      parsed.reportDate ??
       parseDateFromFilename(file.name) ??
       new Date().toISOString().slice(0, 10);
   } catch (err) {
@@ -124,6 +99,8 @@ export async function POST(request: NextRequest) {
     report_date: reportDate,
     source_filename: file.name,
     extracted_json: extracted,
+    source_lab: sourceLab,
+    storage_path: storageFilename,
   });
 
   if (dbError) {
