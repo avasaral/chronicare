@@ -99,8 +99,59 @@ function parseRefRange(ref: string | null): { low: number; high: number } | null
 
 const UNCATEGORIZED = "Other / Uncategorized";
 
+// Maps Claude output variants → canonical category strings.
+// Stored data is never modified; normalization is display-layer only.
+const CATEGORY_ALIASES: Record<string, string> = {
+  // CBC
+  "cbc": "CBC (Complete Blood Count)",
+  "complete blood count": "CBC (Complete Blood Count)",
+  "complete blood picture": "CBC (Complete Blood Count)",
+  "cbp": "CBC (Complete Blood Count)",
+  // LFT
+  "lft": "LFT (Liver Function Test)",
+  "liver function": "LFT (Liver Function Test)",
+  "liver function test": "LFT (Liver Function Test)",
+  "liver function tests": "LFT (Liver Function Test)",
+  "liver panel": "LFT (Liver Function Test)",
+  // KFT
+  "kft": "KFT (Kidney Function Test)",
+  "kidney function": "KFT (Kidney Function Test)",
+  "kidney function test": "KFT (Kidney Function Test)",
+  "renal function": "KFT (Kidney Function Test)",
+  "renal function test": "KFT (Kidney Function Test)",
+  "rft": "KFT (Kidney Function Test)",
+  // Inflammatory
+  "inflammatory": "Inflammatory Markers",
+  "inflammatory marker": "Inflammatory Markers",
+  // Iron
+  "iron": "Iron Studies",
+  "iron panel": "Iron Studies",
+  "iron profile": "Iron Studies",
+  // Lipids
+  "lipids": "Lipid Profile",
+  "lipid": "Lipid Profile",
+  "lipid panel": "Lipid Profile",
+  // Thyroid
+  "thyroid": "Thyroid Panel",
+  "thyroid function": "Thyroid Panel",
+  "thyroid function test": "Thyroid Panel",
+  "tft": "Thyroid Panel",
+  // Vitamins
+  "vitamin": "Vitamins",
+  "vitamins & minerals": "Vitamins",
+  "vitamins and minerals": "Vitamins",
+  // Stool
+  "stool": "Stool Studies",
+  "stool study": "Stool Studies",
+  // Other
+  "other": UNCATEGORIZED,
+  "uncategorized": UNCATEGORIZED,
+  "other/uncategorized": UNCATEGORIZED,
+};
+
 function resolveCategory(cat: string | null | undefined): string {
-  return cat ?? UNCATEGORIZED;
+  if (!cat) return UNCATEGORIZED;
+  return CATEGORY_ALIASES[cat.trim().toLowerCase()] ?? cat;
 }
 
 // ─── Trend data builder ───────────────────────────────────────────────────────
