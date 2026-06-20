@@ -5,15 +5,16 @@ Primary user: Krishna and Vidya tracking their daughter's health (Crohn's diseas
 Currently tracking: medication dose changes, daily symptoms, lab results (blood work every 10 days).
 
 ## Stack
-- Next.js 14 App Router, TypeScript, Tailwind, shadcn/ui
+- Next.js 16 App Router, TypeScript, Tailwind, shadcn/ui
 - Supabase: auth + postgres + storage (lab PDFs)
 - Recharts for charts
 - Claude API (claude-haiku-4-5-20251001) for lab PDF extraction
 - Vercel for hosting
+- Inter font (next/font/google) — wired via --font-inter CSS variable in globals.css
 
 ## Architecture
 - All pages under /dashboard, /medications, /daily-tracker, /labs are protected by middleware
-- Middleware in src/proxy.ts (Next.js 16 uses proxy not middleware)
+- Middleware in src/middleware.ts (named middleware.ts despite Next.js 16 proxy convention — works in practice)
 - Supabase clients: src/lib/supabase/client.ts (browser) and server.ts (server)
 - RLS enabled on all tables — users see only their own rows
 
@@ -31,13 +32,16 @@ id, medication_id, user_id, dose (numeric), changed_at, notes
 
 ### daily_tracker
 id, user_id, date, created_at
-- mood, energy, pain_level (smallint 1-10, UI uses 1-5)
+- mood, energy, pain_level (smallint 1-10, UI uses 1-5 sliders)
 - stomach_pain, bloating, nausea, loose_stools, constipation (smallint 0-3: none/mild/moderate/severe)
 - bm_frequency (smallint, count for the day)
 - bm_consistency (smallint 1-7, Bristol Stool Scale: 1-2 hard, 3-4 normal, 5-7 loose)
-- food_notes (text), junk_sugar_flag (boolean)
-- exercise (text), sleep_hours (numeric 0-24), sleep_quality (smallint 0-3: poor/fair/good/great)
-- medication_taken (boolean)
+- breakfast, morning_snack, lunch, evening_snack, dinner (text, individual meal fields)
+- junk_sugar_flag (boolean), junk_sugar_details (text, shown conditionally)
+- exercise (text, free-form)
+- slept_at, woke_at (time, local — no timezone); sleep_hours (numeric, auto-calculated and stored)
+- sleep_quality (smallint 0-3: poor/fair/good/great)
+- medication_taken (boolean), medication_details (text, free-form meds + supplements)
 - school_notes (text), skills_notes (text)
 - notes (text, catch-all)
 - one entry per user per day (unique constraint on user_id, date)
@@ -51,6 +55,7 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at
 ## Key components
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
 - src/app/medications/MedicationsClient.tsx — all medication UI including cards, forms
+- src/app/daily-tracker/DailyTrackerClient.tsx — full daily tracker form; exports DailyEntry type
 - src/app/api/extract-lab/route.ts — PDF upload + Claude API extraction
 
 ## Patterns established

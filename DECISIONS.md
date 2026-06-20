@@ -28,6 +28,39 @@ deleted and re-added, not edited silently.
 Reason: preserves integrity of the timeline. Audit trail 
 to be added in V2.
 
+## Daily Tracker schema decisions
+
+### bm_consistency: Bristol Stool Scale (smallint 1-7)
+Chose integer scale over free text.
+Reason: Bristol is the clinical standard for Crohn's monitoring; 1-2=constipated, 3-4=normal, 5-7=loose. Trend-analyzable.
+
+### exercise: text (free-form)
+Chose free text over boolean+notes or enum.
+Reason: "30 min walk" carries more context than a checkbox. Two columns for one thought is unnecessary complexity.
+
+### sleep_quality: smallint 0-3 (Poor/Fair/Good/Great)
+Kept consistent with the 0-3 severity scale used across GI fields.
+Labels: 0=Poor, 1=Fair, 2=Good, 3=Great — not "none/mild/moderate/severe."
+
+### sleep_hours: auto-calculated and stored (not just computed on display)
+sleep_hours is derived from slept_at and woke_at but written to the DB on every save.
+Reason: PRD §5.2 requires it to be queryable for the sleep trend chart. Overnight case handled: if woke_at ≤ slept_at, add 24 hrs before computing difference.
+
+### slept_at / woke_at: time type, local timezone, no conversion
+Raw time strings as entered by the user. No UTC conversion.
+Reason: single-family app, everyone is in the same timezone. Timezone complexity adds no value.
+
+### Meal fields: five separate text fields (not one food_notes blob)
+breakfast, morning_snack, lunch, evening_snack, dinner.
+Reason: Vidya's feedback after first use — easier to scan and fill per meal, not one undifferentiated block.
+
+### appetite: dropped from daily_tracker
+Not in the PRD field list; was in symptom_logs but didn't survive the redesign.
+
+### medication_details: free-form text (V1)
+Not cross-referenced against the medications table.
+Reason: cross-reference (checkbox list of current meds) deferred to V2 — see backlog.
+
 ## UX decisions
 
 ### Confirm dialog before all deletes
@@ -41,6 +74,18 @@ Reason: amber signals "watch for" without being alarming (red).
 If today's entry exists, form switches to Update mode.
 Reason: prevents duplicate entries and makes the daily 
 habit clear.
+
+### Daily Tracker visual design
+Reference: Apple Health (soft tinted section cards, generous whitespace) + Streaks (large tap targets, functional color).
+- Page background: #f2f2f7 (iOS system gray) — immediately health-app native, not generic white
+- Each section is a rounded-2xl card with a distinct soft tint (blue/rose/amber/emerald/violet/sky/teal/slate)
+- Section labels: 11px uppercase tracking-widest at 40% opacity — scannable at a glance while scrolling
+- Segmented selectors (0-3 fields): py-3.5 buttons (≥44px tap target), muted accent per section
+- YesNo: unified pill control with hairline divider, emerald=yes, rose=no — not two floating buttons
+- Bristol scale: soft amber/emerald/rose selected states instead of harsh saturated colors
+- All inputs use text-base (16px) — prevents iOS Safari auto-zoom on focus (critical for one-handed use)
+- Header: sticky, white/80 with backdrop-blur — stays visible while scrolling long form
+- Inter font: switched from Geist (which was never properly wired up). Inter chosen for crisper number/label rendering at small sizes. Wired via --font-inter CSS variable.
 
 ## Cost decisions
 
