@@ -23,12 +23,20 @@ export type DailyEntry = {
   constipation: number | null;
   bm_frequency: number | null;
   bm_consistency: number | null;
-  food_notes: string | null;
+  breakfast: string | null;
+  morning_snack: string | null;
+  lunch: string | null;
+  evening_snack: string | null;
+  dinner: string | null;
   junk_sugar_flag: boolean | null;
+  junk_sugar_details: string | null;
   exercise: string | null;
+  slept_at: string | null;
+  woke_at: string | null;
   sleep_hours: number | null;
   sleep_quality: number | null;
   medication_taken: boolean | null;
+  medication_details: string | null;
   school_notes: string | null;
   skills_notes: string | null;
   notes: string | null;
@@ -47,6 +55,16 @@ function formatDate(dateStr: string) {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+function calcSleepHours(sleptAt: string, wokeAt: string): number | null {
+  if (!sleptAt || !wokeAt) return null;
+  const [sh, sm] = sleptAt.split(":").map(Number);
+  const [wh, wm] = wokeAt.split(":").map(Number);
+  const sleptMins = sh * 60 + sm;
+  let wokeMins = wh * 60 + wm;
+  if (wokeMins <= sleptMins) wokeMins += 1440; // overnight: add 24 hrs
+  return Math.round((wokeMins - sleptMins) / 60 * 10) / 10;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -303,18 +321,23 @@ function TodayForm({
   const [bmFrequency, setBmFrequency] = useState<number | null>(e?.bm_frequency ?? null);
   const [bmConsistency, setBmConsistency] = useState<number | null>(e?.bm_consistency ?? null);
 
-  const [foodNotes, setFoodNotes] = useState(e?.food_notes ?? "");
+  const [breakfast, setBreakfast] = useState(e?.breakfast ?? "");
+  const [morningSnack, setMorningSnack] = useState(e?.morning_snack ?? "");
+  const [lunch, setLunch] = useState(e?.lunch ?? "");
+  const [eveningSnack, setEveningSnack] = useState(e?.evening_snack ?? "");
+  const [dinner, setDinner] = useState(e?.dinner ?? "");
   const [junkSugarFlag, setJunkSugarFlag] = useState<boolean | null>(e?.junk_sugar_flag ?? null);
+  const [junkSugarDetails, setJunkSugarDetails] = useState(e?.junk_sugar_details ?? "");
 
   const [exercise, setExercise] = useState(e?.exercise ?? "");
-  const [sleepHours, setSleepHours] = useState(
-    e?.sleep_hours != null ? String(e.sleep_hours) : ""
-  );
+  const [sleptAt, setSleptAt] = useState(e?.slept_at ?? "");
+  const [wokeAt, setWokeAt] = useState(e?.woke_at ?? "");
   const [sleepQuality, setSleepQuality] = useState<number | null>(e?.sleep_quality ?? null);
 
   const [medicationTaken, setMedicationTaken] = useState<boolean | null>(
     e?.medication_taken ?? null
   );
+  const [medicationDetails, setMedicationDetails] = useState(e?.medication_details ?? "");
 
   const [schoolNotes, setSchoolNotes] = useState(e?.school_notes ?? "");
   const [skillsNotes, setSkillsNotes] = useState(e?.skills_notes ?? "");
@@ -342,12 +365,20 @@ function TodayForm({
       constipation,
       bm_frequency: bmFrequency,
       bm_consistency: bmConsistency,
-      food_notes: foodNotes.trim() || null,
+      breakfast: breakfast.trim() || null,
+      morning_snack: morningSnack.trim() || null,
+      lunch: lunch.trim() || null,
+      evening_snack: eveningSnack.trim() || null,
+      dinner: dinner.trim() || null,
       junk_sugar_flag: junkSugarFlag,
+      junk_sugar_details: junkSugarDetails.trim() || null,
       exercise: exercise.trim() || null,
-      sleep_hours: sleepHours !== "" ? Number(sleepHours) : null,
+      slept_at: sleptAt || null,
+      woke_at: wokeAt || null,
+      sleep_hours: calcSleepHours(sleptAt, wokeAt),
       sleep_quality: sleepQuality,
       medication_taken: medicationTaken,
+      medication_details: medicationDetails.trim() || null,
       school_notes: schoolNotes.trim() || null,
       skills_notes: skillsNotes.trim() || null,
       notes: notes.trim() || null,
@@ -428,23 +459,47 @@ function TodayForm({
       {/* Food */}
       <div className="space-y-4">
         <SectionHeader label="Food" />
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            What did she eat today?
-          </label>
-          <textarea
-            value={foodNotes}
-            onChange={(e) => setFoodNotes(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
-            rows={3}
-            placeholder="Meals, snacks…"
-          />
-        </div>
+        {(
+          [
+            ["Breakfast", breakfast, setBreakfast, "What did she have for breakfast?"],
+            ["Morning snack", morningSnack, setMorningSnack, "Morning snack…"],
+            ["Lunch", lunch, setLunch, "What did she have for lunch?"],
+            ["Evening snack", eveningSnack, setEveningSnack, "Evening snack…"],
+            ["Dinner", dinner, setDinner, "What did she have for dinner?"],
+          ] as [string, string, (v: string) => void, string][]
+        ).map(([label, value, setter, placeholder]) => (
+          <div key={label}>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              {label}
+            </label>
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => setter(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+              placeholder={placeholder}
+            />
+          </div>
+        ))}
         <YesNoSelector
           label="Junk food or sugar?"
           value={junkSugarFlag}
           onChange={setJunkSugarFlag}
         />
+        {junkSugarFlag && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              What / how much?
+            </label>
+            <input
+              type="text"
+              value={junkSugarDetails}
+              onChange={(e) => setJunkSugarDetails(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+              placeholder="e.g. 2 cookies, juice box…"
+            />
+          </div>
+        )}
       </div>
 
       {/* Activity & Sleep */}
@@ -462,21 +517,38 @@ function TodayForm({
             placeholder="e.g. 30 min walk, PE class, none"
           />
         </div>
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground">
-            Sleep last night (hrs)
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={24}
-            step={0.5}
-            value={sleepHours}
-            onChange={(e) => setSleepHours(e.target.value)}
-            className="w-20 rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground text-center focus:outline-none focus:ring-2 focus:ring-ring/50"
-            placeholder="8"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Fell asleep
+            </label>
+            <input
+              type="time"
+              value={sleptAt}
+              onChange={(e) => setSleptAt(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Woke up
+            </label>
+            <input
+              type="time"
+              value={wokeAt}
+              onChange={(e) => setWokeAt(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+            />
+          </div>
         </div>
+        {calcSleepHours(sleptAt, wokeAt) != null && (
+          <p className="text-sm text-muted-foreground">
+            Sleep duration:{" "}
+            <span className="font-medium text-foreground">
+              {calcSleepHours(sleptAt, wokeAt)} hrs
+            </span>
+          </p>
+        )}
         <SegmentedSelector
           label="Sleep quality"
           value={sleepQuality}
@@ -493,6 +565,18 @@ function TodayForm({
           value={medicationTaken}
           onChange={setMedicationTaken}
         />
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Medications & supplements given
+          </label>
+          <textarea
+            value={medicationDetails}
+            onChange={(e) => setMedicationDetails(e.target.value)}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
+            rows={2}
+            placeholder="e.g. Azathioprine 50mg, Vitamin D, iron…"
+          />
+        </div>
       </div>
 
       {/* School & Skills */}

@@ -57,6 +57,7 @@ architecture — user documents stay in user's own cloud.
 ## V2 backlog
 - Mobile-first responsive UI
 - Lab trend chart across multiple reports
+- Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
 - Doctor visit notes section
 - Provider view (read-only, user controls what's visible)
 - Symptom trend chart (Recharts fix)
