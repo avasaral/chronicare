@@ -62,7 +62,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - provider_specialty: CHECK constraint — 'GI', 'Primary Care', 'Other'
 - visit_format: CHECK constraint — 'in_person', 'virtual'
 - source_type: CHECK constraint — 'pasted_text', 'image_upload'
-- raw_image_path: path in "visit-images" bucket (e.g. "{user_id}/{uuid}.jpg") — retained permanently as reference original
+- raw_image_path: path in "visit-images" bucket (e.g. "{user_id}/{uuid}.jpg" or ".pdf") — retained permanently as reference original
 - extracted_text: final reviewed/edited text; pre-filled by Claude OCR for image uploads, pasted directly for text mode
 - visit_date and provider_name are never auto-trusted from OCR — always shown as editable pre-filled suggestions
 - Images stored in Supabase Storage bucket "visit-images" (private), same RLS pattern as "lab-reports"
@@ -76,7 +76,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - src/lib/lab-extraction.ts — shared extraction library: LAB_SYSTEM_PROMPT, parseDateFromFilename, parseClaudeResponse
 - src/app/api/reextract-lab/route.ts — re-run Claude on a stored PDF; updates row in place (never inserts)
 - src/app/labs/LabsClient.tsx — all lab UI: upload, previous results list (with Re-extract + Delete), trend charts, cross-date table
-- src/app/api/extract-visit/route.ts — image upload + Claude API OCR for visit notes
+- src/app/api/extract-visit/route.ts — image/PDF upload + Claude API OCR for visit notes
 - src/app/visits/VisitsClient.tsx — visit notes UI: two-mode form (paste text / upload image with OCR confirm step), past visits list with delete
 
 ## Patterns established
@@ -95,7 +95,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
-- /visits — doctor visit notes; two-mode entry (paste text or upload image with Claude OCR); past visits list with expand/delete; original images viewable via signed URLs
+- /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/delete; original images/PDFs viewable via signed URLs
 
 ## Rules
 - RLS on every table

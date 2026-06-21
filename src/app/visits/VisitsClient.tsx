@@ -135,7 +135,7 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
           {visit.raw_image_path && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-foreground/40">
-                Original image
+                Original document
               </p>
               {imageLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -143,19 +143,31 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
                   Loading…
                 </div>
               ) : imageUrl ? (
-                <a href={imageUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={imageUrl}
-                    alt="Original visit note"
-                    className="max-w-full max-h-96 rounded-lg border border-border object-contain"
-                  />
-                </a>
+                visit.raw_image_path.endsWith(".pdf") ? (
+                  <a
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-blue-500 hover:text-blue-400 hover:bg-muted/50 transition-colors"
+                  >
+                    <ImageIcon className="size-4" />
+                    Open original PDF
+                  </a>
+                ) : (
+                  <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={imageUrl}
+                      alt="Original visit note"
+                      className="max-w-full max-h-96 rounded-lg border border-border object-contain"
+                    />
+                  </a>
+                )
               ) : (
                 <button
                   onClick={loadImage}
                   className="text-sm text-blue-500 hover:text-blue-400"
                 >
-                  Load image
+                  Load original
                 </button>
               )}
             </div>
@@ -365,7 +377,7 @@ function NewVisitForm({ onSaved }: { onSaved: () => void }) {
             <span className="text-sm text-muted-foreground text-center">
               {extracting
                 ? "Reading visit note…"
-                : "Click to upload an image (JPEG, PNG, WebP)"}
+                : "Click to upload an image or PDF"}
             </span>
             {extracting && (
               <span className="inline-block size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -375,7 +387,7 @@ function NewVisitForm({ onSaved }: { onSaved: () => void }) {
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];

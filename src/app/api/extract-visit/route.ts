@@ -40,10 +40,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Image file required" }, { status: 400 });
   }
 
-  const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!validTypes.includes(file.type)) {
+  const imageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const isPdf = file.type === "application/pdf";
+  if (!isPdf && !imageTypes.includes(file.type)) {
     return NextResponse.json(
-      { error: "Unsupported image type. Use JPEG, PNG, WebP, or GIF." },
+      { error: "Unsupported file type. Use JPEG, PNG, WebP, GIF, or PDF." },
       { status: 400 }
     );
   }
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(bytes);
   const base64 = buffer.toString("base64");
 
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const ext = file.name.split(".").pop()?.toLowerCase() || (isPdf ? "pdf" : "jpg");
   const storagePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from("visit-images")
@@ -66,6 +67,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const fileContent: Anthropic.Messages.ContentBlockParam = isPdf
+      ? {
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: base64,
+          },
+        }
+      : {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+            data: base64,
+          },
+        };
+
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
@@ -73,14 +92,7 @@ export async function POST(request: NextRequest) {
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
-                data: base64,
-              },
-            },
+            fileContent,
             { type: "text", text: VISIT_EXTRACTION_PROMPT },
           ],
         },
