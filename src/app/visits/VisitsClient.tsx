@@ -54,8 +54,19 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
+
+  // Edit form state
+  const [editDate, setEditDate] = useState(visit.visit_date);
+  const [editProvider, setEditProvider] = useState(visit.provider_name);
+  const [editSpecialty, setEditSpecialty] = useState(visit.provider_specialty);
+  const [editFormat, setEditFormat] = useState(visit.visit_format);
+  const [editText, setEditText] = useState(visit.extracted_text);
+  const [editNotes, setEditNotes] = useState(visit.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleDelete() {
     if (!window.confirm("Delete this visit note? This cannot be undone."))
@@ -77,6 +88,55 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
     setImageLoading(false);
   }
 
+  function startEditing() {
+    setEditDate(visit.visit_date);
+    setEditProvider(visit.provider_name);
+    setEditSpecialty(visit.provider_specialty);
+    setEditFormat(visit.visit_format);
+    setEditText(visit.extracted_text);
+    setEditNotes(visit.notes ?? "");
+    setSaveError(null);
+    setEditing(true);
+    setExpanded(true);
+  }
+
+  async function handleEditSave() {
+    if (!editProvider.trim()) {
+      setSaveError("Provider name is required.");
+      return;
+    }
+    if (!editText.trim()) {
+      setSaveError("Visit notes text is required.");
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("medical_visits")
+      .update({
+        visit_date: editDate,
+        provider_name: editProvider.trim(),
+        provider_specialty: editSpecialty,
+        visit_format: editFormat,
+        extracted_text: editText.trim(),
+        notes: editNotes.trim() || null,
+      })
+      .eq("id", visit.id);
+
+    if (error) {
+      setSaveError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    setEditing(false);
+    router.refresh();
+  }
+
   const formatLabel =
     visit.visit_format === "in_person" ? "In-person" : "Virtual";
 
@@ -85,8 +145,10 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
       <div className="flex items-center px-5 py-4">
         <button
           onClick={() => {
-            setExpanded((v) => !v);
-            if (!expanded && visit.raw_image_path) loadImage();
+            if (!editing) {
+              setExpanded((v) => !v);
+              if (!expanded && visit.raw_image_path) loadImage();
+            }
           }}
           className="flex-1 flex items-center justify-between gap-3 text-left hover:opacity-80 transition-opacity"
         >
@@ -100,16 +162,25 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
               {visit.source_type === "image_upload" && " · 📷"}
             </span>
           </div>
-          {expanded ? (
-            <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-          )}
+          {!editing &&
+            (expanded ? (
+              <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+            ))}
         </button>
-        <div className="ml-4 shrink-0">
+        <div className="ml-4 flex items-center gap-3 shrink-0">
+          {!editing && (
+            <button
+              onClick={startEditing}
+              className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
+            >
+              Edit
+            </button>
+          )}
           <button
             onClick={handleDelete}
-            disabled={deleting}
+            disabled={deleting || editing}
             className="text-xs text-destructive hover:text-destructive/80 disabled:opacity-40 transition-colors"
           >
             {deleting ? "Deleting…" : "Delete"}
@@ -117,7 +188,117 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
         </div>
       </div>
 
-      {expanded && (
+      {editing && (
+        <div className="px-5 pb-5 border-t border-border pt-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+              Visit notes
+            </label>
+            <textarea
+              className={TEXTAREA}
+              rows={6}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+                Visit date
+              </label>
+              <input
+                type="date"
+                className={INPUT}
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+                Provider
+              </label>
+              <input
+                type="text"
+                className={INPUT}
+                value={editProvider}
+                onChange={(e) => setEditProvider(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+                Specialty
+              </label>
+              <select
+                className={SELECT}
+                value={editSpecialty}
+                onChange={(e) => setEditSpecialty(e.target.value)}
+              >
+                {SPECIALTIES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+                Format
+              </label>
+              <select
+                className={SELECT}
+                value={editFormat}
+                onChange={(e) => setEditFormat(e.target.value)}
+              >
+                {FORMATS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground/80 block mb-1.5">
+              Additional notes{" "}
+              <span className="text-foreground/40 font-normal">optional</span>
+            </label>
+            <textarea
+              className={TEXTAREA}
+              rows={2}
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+            />
+          </div>
+
+          {saveError && (
+            <p className="text-sm text-destructive">{saveError}</p>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleEditSave}
+              disabled={saving}
+              className="flex-1 rounded-xl bg-foreground text-background py-3 text-sm font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-medium text-foreground/60 hover:bg-muted/30 disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {expanded && !editing && (
         <div className="px-5 pb-5 border-t border-border pt-4 space-y-4">
           <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
             {visit.extracted_text}

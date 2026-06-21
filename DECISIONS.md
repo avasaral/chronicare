@@ -140,8 +140,9 @@ Claude extracts best-effort suggestions for visit_date and provider_name from up
 Reason: OCR accuracy on WhatsApp screenshots and handwritten notes is unreliable for structured fields. A wrong date silently committed would corrupt the visit timeline — the one thing that must be accurate. This is the first ChroniCare feature with a human-in-the-loop OCR confirm step.
 
 ### No audit trail for visit edits (same as daily_tracker, unlike dose_history)
-medical_visits follows the daily_tracker precedent: editable, no audit trail needed.
+medical_visits follows the daily_tracker precedent: editable inline after save, no audit trail needed.
 Reason: visit notes are caregiver-curated summaries, not derived clinical timeline values. Corrections are expected and silently acceptable — the user is transcribing/summarizing what a doctor said, not recording a precise medical event like a dose change. dose_history is the exception, not the rule.
+Reconsidered when edit-after-save was added, given the accuracy requirement on visit_date/provider_name; decision unchanged — a typo fix is a typo fix, not a clinical event worth auditing.
 
 ### CHECK constraints on provider_specialty, visit_format, source_type
 medical_visits uses SQL CHECK constraints for its enum-like fields, unlike daily_tracker which relies on UI-only enforcement.
@@ -159,6 +160,5 @@ Reason: these are small, stable fixed lists (3, 2, and 2 values respectively) th
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
 - Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
-- Edit-after-save for existing visit rows
 - Image support for lab uploads (JPG/PNG)
 - Multi-patient support

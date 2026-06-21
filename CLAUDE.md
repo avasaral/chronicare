@@ -66,7 +66,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - extracted_text: final reviewed/edited text; pre-filled by Claude OCR for image uploads, pasted directly for text mode
 - visit_date and provider_name are never auto-trusted from OCR — always shown as editable pre-filled suggestions
 - Images stored in Supabase Storage bucket "visit-images" (private), same RLS pattern as "lab-reports"
-- Editable, no audit trail (same reasoning as daily_tracker — caregiver-curated content)
+- Editable inline after save (same pattern as daily_tracker past-entry editing — UPDATE by id, no audit trail, caregiver-curated content)
 
 ## Key components
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
