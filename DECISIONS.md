@@ -129,16 +129,36 @@ V2 plan: move to user's own Google Drive / OneDrive.
 Reason for V1: simplicity. Reason for V2 change: PHI-local 
 architecture — user documents stay in user's own cloud.
 
+## Medical visits decisions
+
+### Separate tables per visit type (medical, therapist, school) instead of one polymorphic table
+Each visit type gets its own table (medical_visits first, therapist/school deferred).
+Reason: different visit types will have different fields (e.g. therapist notes may need session_type, school may need teacher_name). A polymorphic table with nullable columns for each type leads to unclear constraints and messy queries. Separate tables are clearer now; the cost is a more complex JOIN for the future unified timeline view, which is acceptable since the timeline is explicitly deferred.
+
+### visit_date and provider_name are never auto-trusted from OCR
+Claude extracts best-effort suggestions for visit_date and provider_name from uploaded images, but these are always pre-filled as editable fields with a visible "extracted, please confirm" indicator. The user must review before saving.
+Reason: OCR accuracy on WhatsApp screenshots and handwritten notes is unreliable for structured fields. A wrong date silently committed would corrupt the visit timeline — the one thing that must be accurate. This is the first ChroniCare feature with a human-in-the-loop OCR confirm step.
+
+### No audit trail for visit edits (same as daily_tracker, unlike dose_history)
+medical_visits follows the daily_tracker precedent: editable, no audit trail needed.
+Reason: visit notes are caregiver-curated summaries, not derived clinical timeline values. Corrections are expected and silently acceptable — the user is transcribing/summarizing what a doctor said, not recording a precise medical event like a dose change. dose_history is the exception, not the rule.
+
+### CHECK constraints on provider_specialty, visit_format, source_type
+medical_visits uses SQL CHECK constraints for its enum-like fields, unlike daily_tracker which relies on UI-only enforcement.
+Reason: these are small, stable fixed lists (3, 2, and 2 values respectively) that are unlikely to change. Bad data in these columns would break filtering and display logic. daily_tracker's enum-like fields (severity 0-3, Bristol 1-7) use range CHECKs but not value-list CHECKs because they're numeric scales, not categorical labels. For categorical text fields with a fixed vocabulary, DB-level enforcement prevents bad data from any future API caller.
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
-- Doctor visit notes section
 - Provider view (read-only, user controls what's visible)
 - Symptom trend chart (Recharts fix)
 - Google Drive / OneDrive integration for PHI-local storage
 - Edit dose history with audit trail
 - Lab appointment reminders
-- Timeline view across all events
-- Therapist and school feedback sections
+- Timeline view across all events (unified view: visits + labs + daily tracker + dose changes)
+- Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
+- School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
+- Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
+- Edit-after-save for existing visit rows
 - Image support for lab uploads (JPG/PNG)
 - Multi-patient support

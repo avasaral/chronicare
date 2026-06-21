@@ -2,18 +2,18 @@
 
 Health tracker for families managing complex chronic conditions.
 Primary user: Krishna and Vidya tracking their daughter's health (Crohn's disease, on immunosuppressants).
-Currently tracking: medication dose changes, daily symptoms, lab results (blood work every 10 days).
+Currently tracking: medication dose changes, daily symptoms, lab results (blood work every 10 days), doctor visit notes.
 
 ## Stack
 - Next.js 16 App Router, TypeScript, Tailwind, shadcn/ui
-- Supabase: auth + postgres + storage (lab PDFs)
+- Supabase: auth + postgres + storage (lab PDFs, visit images)
 - Recharts for charts
-- Claude API (claude-haiku-4-5-20251001) for lab PDF extraction
+- Claude API (claude-haiku-4-5-20251001) for lab PDF extraction + visit image OCR
 - Vercel for hosting
 - Inter font (next/font/google) — wired via --font-inter CSS variable in globals.css
 
 ## Architecture
-- All pages under /dashboard, /medications, /daily-tracker, /labs are protected by middleware
+- All pages under /dashboard, /medications, /daily-tracker, /labs, /visits are protected by middleware
 - Middleware in src/middleware.ts (named middleware.ts despite Next.js 16 proxy convention — works in practice)
 - Supabase clients: src/lib/supabase/client.ts (browser) and server.ts (server)
 - RLS enabled on all tables — users see only their own rows
@@ -57,6 +57,17 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, s
 - PDFs stored in Supabase Storage bucket "lab-reports" (private)
 - Rows uploaded before storage_path tracking have storage_path = null; re-extraction falls back to time-correlation
 
+### medical_visits
+id, user_id, visit_date (date), provider_name (text), provider_specialty (text), visit_format (text), source_type (text), raw_image_path (text, nullable), extracted_text (text), notes (text, nullable), created_at
+- provider_specialty: CHECK constraint — 'GI', 'Primary Care', 'Other'
+- visit_format: CHECK constraint — 'in_person', 'virtual'
+- source_type: CHECK constraint — 'pasted_text', 'image_upload'
+- raw_image_path: path in "visit-images" bucket (e.g. "{user_id}/{uuid}.jpg") — retained permanently as reference original
+- extracted_text: final reviewed/edited text; pre-filled by Claude OCR for image uploads, pasted directly for text mode
+- visit_date and provider_name are never auto-trusted from OCR — always shown as editable pre-filled suggestions
+- Images stored in Supabase Storage bucket "visit-images" (private), same RLS pattern as "lab-reports"
+- Editable, no audit trail (same reasoning as daily_tracker — caregiver-curated content)
+
 ## Key components
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
 - src/app/medications/MedicationsClient.tsx — all medication UI including cards, forms
@@ -65,6 +76,8 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, s
 - src/lib/lab-extraction.ts — shared extraction library: LAB_SYSTEM_PROMPT, parseDateFromFilename, parseClaudeResponse
 - src/app/api/reextract-lab/route.ts — re-run Claude on a stored PDF; updates row in place (never inserts)
 - src/app/labs/LabsClient.tsx — all lab UI: upload, previous results list (with Re-extract + Delete), trend charts, cross-date table
+- src/app/api/extract-visit/route.ts — image upload + Claude API OCR for visit notes
+- src/app/visits/VisitsClient.tsx — visit notes UI: two-mode form (paste text / upload image with OCR confirm step), past visits list with delete
 
 ## Patterns established
 - Inline forms on cards (not modals) — see DoseChangeForm, EditMedicationForm
@@ -82,6 +95,7 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, s
 - /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
+- /visits — doctor visit notes; two-mode entry (paste text or upload image with Claude OCR); past visits list with expand/delete; original images viewable via signed URLs
 
 ## Rules
 - RLS on every table

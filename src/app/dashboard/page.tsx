@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Activity, FlaskConical, Pill } from "lucide-react";
+import { Activity, FlaskConical, Pill, Stethoscope } from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
 
 export default async function DashboardPage() {
@@ -14,7 +14,7 @@ export default async function DashboardPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: meds }, { data: todayLog }, { data: lastLab }] =
+  const [{ data: meds }, { data: todayLog }, { data: lastLab }, { data: lastVisit }] =
     await Promise.all([
       supabase
         .from("medications")
@@ -29,6 +29,12 @@ export default async function DashboardPage() {
         .from("lab_results")
         .select("report_date, source_filename")
         .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("medical_visits")
+        .select("visit_date, provider_name")
+        .order("visit_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);
@@ -129,6 +135,30 @@ export default async function DashboardPage() {
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">
                   No reports uploaded yet
+                </p>
+              )}
+            </div>
+          </Link>
+
+          {/* Visit Notes */}
+          <Link
+            href="/visits"
+            className="flex items-start gap-4 rounded-xl border border-border bg-card px-5 py-4 shadow-xs hover:border-foreground/20 transition-colors"
+          >
+            <Stethoscope className="size-5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">Visit Notes</p>
+              {lastVisit ? (
+                <p className="mt-1 text-sm text-muted-foreground truncate">
+                  Last visit{" "}
+                  <span className="text-foreground">
+                    {formatDate(lastVisit.visit_date)}
+                  </span>{" "}
+                  · {lastVisit.provider_name}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No visits logged yet
                 </p>
               )}
             </div>
