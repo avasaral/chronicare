@@ -106,10 +106,52 @@ integration into timeline still pending — explicitly out of scope this pass.
 
 ---
 
-## Day 5 — [date]
-**Shipped:**
-**Broke:**
-**Next:**
+## Day 5 — 2026-06-21
+**Shipped:** Daily Tracker trend chart (§5.2) — closed the last open V1 item.
+7 panels across 4 sections (Wellbeing x3, GI Symptoms combined into one
+multi-line chart, Bowel Movements x2, Sleep x1), same Recharts MiniChart
+pattern as /labs, renders only with 2+ non-null entries per field. Corrected
+a DECISIONS.md mis-filing — this was previously listed as V2 backlog, but
+PRD §5.2 explicitly calls it V1-priority. Also revised PRD §6.1: lab image
+upload removed as a requirement — this family's labs are PDF-only, the
+WhatsApp-image assumption didn't match real usage; not deferred, corrected.
+
+**Broke:** Nothing — verified via direct query that the 2+ threshold is
+working as designed, not a bug. Only 4 of 7 panels render today because GI/BM
+fields are sparsely logged across the 3 real entries so far (1 of 3 days has
+GI/BM data filled).
+
+**V1 status — closed, with two things explicitly not complete (not forgotten):**
+- §5.1 (all 12 fields) — shipped. §5.3 (rename) — shipped.
+- §5.2 trend chart literally says "across the above dimensions" (all 12 §5.1
+  fields). What shipped covers the 9 fields that are meaningfully
+  chart-able as a trend line (energy, mood, pain, 5 GI symptoms combined,
+  BM frequency, BM consistency, sleep hours). Three §5.1 items are NOT
+  trended:
+  - **Medication adherence** — boolean, not a line chart; deliberately
+    deferred, documented in DECISIONS.md as a future weekly
+    adherence-percentage indicator, not silently dropped.
+  - **Food / junk-sugar flag** — boolean/text, not chartable as a trend line.
+  - **School notes / skills notes / free-form notes** — free text, not
+    chartable at all.
+  None of these are bugs or oversights — they're not line-chart-shaped data.
+  Calling this out explicitly so "V1 done" isn't read as "12/12 dimensions
+  trended" when it's actually "9 of 12 chartable dimensions trended, 3
+  correctly excluded as non-chartable, 1 of those 3 flagged as a real future
+  gap (adherence)."
+
+**Next:** V1 closed on this basis. Watch item: GI symptoms and BM
+frequency/consistency — the fields the PRD calls most clinically load-bearing
+for Crohn's — are the ones getting skipped most in actual daily logging so
+far (1 of 3 real entries has them filled). Worth re-checking after a week of
+real use: if this persists, it's a form-friction or habit problem, not a
+charting problem, and needs attention before more V2 features get added on
+top. Both Krishna and Vidya committed to daily logging going forward (lapse
+this past week was build-cycle business, not the app). V2 remains
+substantially ahead of original 5-day scope (§6.1–6.5 already shipped);
+remaining V2 backlog: appointment reminders, therapist/school notes, visit
+tagging, search, provider view — none urgent per PRD, no sprint pressure to
+rush them.
 
 ---
 

@@ -199,7 +199,7 @@ Reason: explicit scope constraint from the build request. daily_tracker integrat
 PRD §5.2 explicitly calls the Daily Tracker trend chart "core to V1" and "not optional polish." It was incorrectly filed in the V2 backlog below in an earlier session. Corrected and built as V1 scope.
 
 ### Field selection
-11 dimensions charted across 4 sections, with GI symptoms combined into one multi-line chart:
+9 chartable dimensions (of the 12 fields listed in PRD §5.1) charted across 4 sections, 7 visual panels total, with GI symptoms combined into one multi-line chart:
 - **Wellbeing (3 MiniCharts):** Energy, Mood, Pain Level — each independently clinically meaningful for flare detection.
 - **GI Symptoms (1 multi-line chart):** Stomach pain, bloating, nausea, loose stools, constipation — all share the same 0-3 severity scale, so they share one chart with a legend. Five separate panels would be too noisy for a quick mobile scan.
 - **Bowel Movements (2 MiniCharts):** BM Frequency, BM Consistency (Bristol) — the two most important objective Crohn's metrics.
@@ -210,6 +210,7 @@ PRD §5.2 explicitly calls the Daily Tracker trend chart "core to V1" and "not o
 - **Medication taken (boolean):** Not directly chartable as a trend line. See "Medication adherence indicator" below.
 - **Junk/sugar flag (boolean):** Same — binary, not a continuous trend.
 - **Text fields (food, exercise, school, skills, notes):** Not numeric, not chartable.
+Together with the medication adherence gap below, this accounts for all 12 PRD §5.1 fields: 9 charted, 3 correctly excluded as non-chart-shaped data (1 of which — adherence — is flagged as a real future gap, not just excluded).
 
 ### Medication adherence indicator — known gap
 medication_taken is a daily boolean. A line chart is the wrong visualization; the clinically useful view is adherence-percentage-per-week (e.g. "5/7 days this week"). This is relevant per PRD §1 — adherence correlated against symptom spikes is one of the core reasons the tool exists. Deferred as a future indicator (not a MiniChart), distinct from this build.
@@ -232,5 +233,5 @@ Placed between the entry form and the 14-day list view. Reuses the same Recharts
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
 - Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
-- Image support for lab uploads (JPG/PNG)
+- ~~Image support for lab uploads (JPG/PNG)~~ — revised 2026-06-21: assumed a general Bangalore WhatsApp-image pattern that doesn't match this family's actual labs (PDF-only in practice). Removed as a requirement, not deferred. Re-add only if a real instance of this need appears (e.g. multi-family expansion).
 - Multi-patient support

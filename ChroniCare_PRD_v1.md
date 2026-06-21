@@ -101,7 +101,7 @@ One entry per day; opens in update mode if today's entry already exists (existin
 
 ### 6.1 Lab results
 - Existing PDF upload → Claude extraction pipeline (Haiku, structured JSON) — keep as-is, it works
-- **Add image upload support** (JPG/PNG) — many Bangalore diagnostic centers send results via WhatsApp as images, not PDFs. This is a real gap blocking real use, not a nice-to-have.
+- ~~Add image upload support (JPG/PNG)~~ — **revised 2026-06-21**: this assumed a general Bangalore diagnostic-center pattern that doesn't match this family's actual labs, which send PDFs exclusively. Not a gap for this single-family build. If multi-family expansion (§2, near-term) surfaces a real WhatsApp-image case from another family, revisit then — don't speculatively build for a workflow no current user has.
 - **Trend/comparison chart across multiple lab reports over time** — identified by Vidya as the single most clinically valuable missing feature. Top priority within V2.
 - Lab appointment reminder (next draw date)
 
