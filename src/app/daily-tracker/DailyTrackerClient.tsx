@@ -308,18 +308,21 @@ function YesNoSelector({
   );
 }
 
-// ─── Today's Form ─────────────────────────────────────────────────────────────
+// ─── Entry Form (today or any past date) ──────────────────────────────────────
 
-function TodayForm({
-  todayEntry,
+function EntryForm({
+  entry,
+  targetDate,
   userId,
 }: {
-  todayEntry: DailyEntry | null;
+  entry: DailyEntry | null;
+  targetDate: string;
   userId: string;
 }) {
   const router = useRouter();
-  const isEdit = todayEntry !== null;
-  const e = todayEntry;
+  const isEdit = entry !== null;
+  const e = entry;
+  const isToday = targetDate === todayStr();
 
   const [mood, setMood] = useState(e?.mood ?? 3);
   const [energy, setEnergy] = useState(e?.energy ?? 3);
@@ -401,7 +404,7 @@ function TodayForm({
       ? await supabase.from("daily_tracker").update(payload).eq("id", e!.id)
       : await supabase.from("daily_tracker").insert({
           user_id: userId,
-          date: todayStr(),
+          date: targetDate,
           ...payload,
         });
 
@@ -423,9 +426,9 @@ function TodayForm({
       {/* Date header */}
       <div className="px-1 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">
-          {isEdit ? "Today's log" : "Log today"}
+          {isToday ? (isEdit ? "Today's log" : "Log today") : formatDate(targetDate)}
         </h2>
-        <span className="text-sm text-foreground/40">{formatDate(todayStr())}</span>
+        <span className="text-sm text-foreground/40">{formatDate(targetDate)}</span>
       </div>
 
       {/* ── Wellbeing ─────────────────────────────────────────── */}
@@ -648,7 +651,11 @@ function TodayForm({
       )}
 
       <Button type="submit" disabled={loading} className="w-full h-12 text-base rounded-xl">
-        {loading ? "Saving…" : isEdit ? "Update today's log" : "Save today's log"}
+        {loading
+          ? "Saving…"
+          : isEdit
+          ? isToday ? "Update today's log" : "Update log"
+          : isToday ? "Save today's log" : "Save log"}
       </Button>
     </form>
   );
@@ -662,7 +669,13 @@ function pillCls(good: boolean): string {
     : "bg-rose-100 text-rose-800";
 }
 
-function LogList({ logs }: { logs: DailyEntry[] }) {
+function LogList({
+  logs,
+  onEdit,
+}: {
+  logs: DailyEntry[];
+  onEdit: (entry: DailyEntry) => void;
+}) {
   const router = useRouter();
 
   async function handleDelete(id: string) {
@@ -706,6 +719,12 @@ function LogList({ logs }: { logs: DailyEntry[] }) {
                 </span>
               )}
               <button
+                onClick={() => onEdit(log)}
+                className="text-xs text-blue-500 hover:text-blue-400 transition-colors shrink-0"
+              >
+                Edit
+              </button>
+              <button
                 onClick={() => handleDelete(log.id)}
                 className="text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
               >
@@ -735,6 +754,23 @@ export default function DailyTrackerClient({
   todayEntry: DailyEntry | null;
   logs: DailyEntry[];
 }) {
+  const [activeEntry, setActiveEntry] = useState<DailyEntry | null>(todayEntry);
+  const [activeDate, setActiveDate] = useState<string>(todayStr());
+
+  const isViewingPast = activeDate !== todayStr();
+
+  function handleEdit(entry: DailyEntry) {
+    setActiveEntry(entry);
+    setActiveDate(entry.date);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleBackToToday() {
+    setActiveEntry(todayEntry);
+    setActiveDate(todayStr());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="min-h-screen bg-[#f2f2f7]">
       <header className="border-b border-black/8 bg-white/80 backdrop-blur-sm px-4 py-4 sticky top-0 z-10">
@@ -753,9 +789,20 @@ export default function DailyTrackerClient({
       </header>
 
       <main className="max-w-xl mx-auto px-4 py-5 space-y-6 pb-10">
-        <TodayForm
-          key={todayEntry?.id ?? "new"}
-          todayEntry={todayEntry}
+        {isViewingPast && (
+          <button
+            onClick={handleBackToToday}
+            className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-400 transition-colors px-1"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to today
+          </button>
+        )}
+
+        <EntryForm
+          key={activeEntry?.id ?? "new-today"}
+          entry={activeEntry}
+          targetDate={activeDate}
           userId={userId}
         />
 
@@ -764,7 +811,7 @@ export default function DailyTrackerClient({
             <h2 className="text-sm font-semibold text-foreground/50 uppercase tracking-wider px-1">
               Last 14 days
             </h2>
-            <LogList logs={logs} />
+            <LogList logs={logs} onEdit={handleEdit} />
           </section>
         )}
       </main>
