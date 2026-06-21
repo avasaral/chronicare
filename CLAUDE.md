@@ -8,7 +8,7 @@ Currently tracking: medication dose changes, daily symptoms, lab results (blood 
 - Next.js 16 App Router, TypeScript, Tailwind, shadcn/ui
 - Supabase: auth + postgres + storage (lab PDFs, visit images)
 - Recharts for charts
-- Claude API (claude-haiku-4-5-20251001) for lab PDF extraction + visit image OCR
+- Claude API (claude-haiku-4-5-20251001) for lab PDF extraction + visit image/PDF OCR
 - Vercel for hosting
 - Inter font (next/font/google) — wired via --font-inter CSS variable in globals.css
 
@@ -95,7 +95,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
-- /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/delete; original images/PDFs viewable via signed URLs
+- /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs
 
 ## Rules
 - RLS on every table

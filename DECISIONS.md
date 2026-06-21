@@ -156,6 +156,17 @@ Reason: backfilling an old record should slot it in by its actual date, not jump
 Ad-hoc follow-up communication with a provider (emailed update, phone call) is stored in medical_visits with visit_format = 'follow_up', alongside 'in_person' and 'virtual'.
 Reason: follow-ups share all the same fields as visits — date, provider, notes, source type. A separate table would duplicate schema for no structural benefit. Keeping them in one table with one date field means the future unified timeline (§6.5) can pull both visits and follow-ups from a single query with no special-casing.
 
+### Image upload accepts PDF as well as JPG/PNG
+The visit-image upload path accepts PDF in addition to JPG/PNG, reusing the
+same PDF-handling pattern already proven in lab extraction (extract-lab/route.ts).
+Reason: real-world testing showed WhatsApp-delivered visit notes from Dr. Lavenya
+arrive as PDFs containing scanned/photographed handwriting, not as raw image
+files — this is the normal case for this provider, not an edge case. The OCR
+prompt itself is unchanged; only the accepted file type and how it's forwarded
+to Claude differs. raw_image_path stores either format under one column —
+no separate source_type value was added for PDF vs. image, since conceptually
+it's the same path (uploaded document → OCR → confirm).
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.

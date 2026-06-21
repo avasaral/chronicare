@@ -55,10 +55,36 @@ needs real examples if they surface.
 
 ---
 
-## Day 3 — [date]
-**Shipped:**
-**Broke:**
-**Next:**
+## Day 3 — 2026-06-21
+**Shipped:** Medical visit notes (§6.3, medical visits only — therapist/school
+deliberately deferred). New `medical_visits` table + `/visits` page: two entry
+modes (paste text for email follow-ups, image/PDF upload for WhatsApp/handwritten
+notes via Claude Haiku OCR with mandatory human-confirm step before save — first
+extract-then-review pattern in the app, contrast with labs' direct-save).
+visit_date/provider_name always human-confirmed, never auto-trusted from OCR,
+even though Claude pre-fills both as a suggestion. provider_specialty (GI/Primary
+Care/Other) and visit_format (in_person/virtual/follow_up) as DB-level CHECK
+constraints — deliberate deviation from daily_tracker's UI-only enum enforcement,
+reasoning documented in DECISIONS.md. Edit-after-save added (no audit trail,
+same precedent as daily_tracker). Dashboard card showing last visit. Sort order
+fixed across all three lists (daily_tracker, lab_results, medical_visits) to use
+each record's real-world date field, not upload/creation time — prerequisite
+for §6.5 to work correctly later.
+**Broke:** Initial build only accepted JPG/PNG for upload; real-world WhatsApp
+notes from Dr. Lavenya arrive as PDFs (scanned handwriting), not images — 100%
+of her notes, not an edge case. Fixed same-session by extending the upload path
+to PDF, reusing the existing lab-extraction PDF pattern. Lab results were
+sorting by upload timestamp, not report_date — would have broken historical
+backfill ordering; caught and fixed same session, before backfill testing began.
+**Next:** Therapist/school notes as near-identical follow-on to medical_visits
+(same OCR-confirm pattern, separate table per visit-type decision). §6.5 unified
+timeline now realistically unblocked — visits, follow-ups, and labs all sort
+consistently by real date; still not started. Continue dogfooding with real
+visit history from Dr. Lavenya, especially testing OCR accuracy on handwriting
+over more samples. Three small doc-accuracy fixes applied end-of-day (missing
+PDF-decision entry in DECISIONS.md, two stale wording lines in CLAUDE.md) —
+worth a habit check: re-read both docs end-of-session before re-upload, not
+just trust each prompt's own "update the docs" step in isolation.
 
 ---
 
