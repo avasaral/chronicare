@@ -78,6 +78,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - src/app/labs/LabsClient.tsx — all lab UI: upload, previous results list (with Re-extract + Delete), trend charts, cross-date table
 - src/app/api/extract-visit/route.ts — image/PDF upload + Claude API OCR for visit notes
 - src/app/visits/VisitsClient.tsx — visit notes UI: two-mode form (paste text / upload image with OCR confirm step), past visits list with delete
+- src/app/timeline/TimelineClient.tsx — read-only unified timeline merging labs + visits, grouped by date, inline expand
 
 ## Patterns established
 - Inline forms on cards (not modals) — see DoseChangeForm, EditMedicationForm
@@ -96,6 +97,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 - /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs
+- /timeline — read-only unified timeline (labs + visits merged by date); no nav link yet, direct URL only; reads from lab_results and medical_visits (no new table)
 
 ## Rules
 - RLS on every table

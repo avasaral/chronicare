@@ -167,6 +167,32 @@ to Claude differs. raw_image_path stores either format under one column —
 no separate source_type value was added for PDF vs. image, since conceptually
 it's the same path (uploaded document → OCR → confirm).
 
+## Timeline decisions
+
+### Display-layer merge, no new database table
+/timeline merges lab_results and medical_visits into a single chronological view at the component level. No new database table was created.
+Reason: same rationale class as resolveCategory() and testKey() — the source tables already contain all the data; the timeline is a presentation concern, not a data-model concern. A denormalized timeline table would duplicate data, require sync triggers, and add mutation surface for a read-only view. The component normalizes rows from both queries into a common shape `{ date, type, id, created_at, ...type-specific }`, sorts descending by date with created_at as tiebreaker, and groups by date for rendering.
+
+### Tie-breaking: created_at descending for same-day entries
+When multiple entries share the same date, they are sorted by created_at descending (most recently added first).
+Reason: deterministic ordering independent of query return order. created_at reflects when the user recorded the event, which is the most useful secondary sort for a caregiver reviewing what was logged.
+
+### Type distinction via icon, not color
+Lab cards use the FlaskConical icon and visit cards use the Stethoscope icon (same icons used on the /dashboard summary cards). No new color palette was introduced.
+Reason: the existing /labs and /visits pages use identical neutral card styling (border-border bg-card). Inventing a new per-type color scheme for the timeline would diverge from established conventions. Icons are sufficient to distinguish types at a glance.
+
+### Visit preview: first line, truncated at 120 characters
+The collapsed visit card shows the first line of extracted_text, capped at 120 characters with an ellipsis.
+Reason: judgment call — 120 chars fits comfortably on mobile without wrapping to more than ~2 lines, while giving enough context to identify the visit.
+
+### Empty state wording
+"No lab reports or visit notes yet." with links to /labs and /visits.
+Reason: judgment call on exact wording — matches the pattern used elsewhere (e.g. dashboard "No medications added yet", "No visits logged yet").
+
+### Labs + visits only (no daily_tracker)
+This pass deliberately excludes daily_tracker entries from the timeline.
+Reason: explicit scope constraint from the build request. daily_tracker integration is a follow-on.
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
@@ -175,7 +201,7 @@ it's the same path (uploaded document → OCR → confirm).
 - Google Drive / OneDrive integration for PHI-local storage
 - Edit dose history with audit trail
 - Lab appointment reminders
-- Timeline view across all events (unified view: visits + labs + daily tracker + dose changes)
+- Timeline: add daily_tracker entries, dose changes; add nav link to /timeline
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
 - Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
