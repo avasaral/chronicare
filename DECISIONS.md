@@ -233,5 +233,25 @@ Placed between the entry form and the 14-day list view. Reuses the same Recharts
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
 - Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
+- Search across medications, daily_tracker, lab_results, medical_visits by name/symptom/date range/keyword (PRD §6.6) — flagged 2026-06-21 as missing from this backlog despite being in the PRD; not previously tracked here
 - ~~Image support for lab uploads (JPG/PNG)~~ — revised 2026-06-21: assumed a general Bangalore WhatsApp-image pattern that doesn't match this family's actual labs (PDF-only in practice). Removed as a requirement, not deferred. Re-add only if a real instance of this need appears (e.g. multi-family expansion).
 - Multi-patient support
+
+## Sprint 2 — explicitly deferred (not forgotten)
+
+### Full history ingestion (PRD §6.4) — deferred to Sprint 2
+Decision (2026-06-21): birth-to-now record backfill is split into two separate
+questions that were getting bundled together — (1) what date range to ingest,
+and (2) where the source PDFs physically live. (1) is a normal scope call.
+(2) is a re-trigger of the §9 PHI-storage-location decision: bulk-uploading
+years of archived records (already sitting in Krishna's OneDrive) into Supabase
+Storage would substantially grow real PHI volume in Supabase before that
+architecture question has been deliberately revisited — even if the date range
+is cut to ~3 years (since the family moved to India) rather than true birth-to-now.
+Rather than rush a storage-location decision under sprint pressure, §6.4 is held
+out of this sprint entirely. Sprint 2 will decide between: (A) ingest via current
+Supabase upload pipeline as-is, accepting the volume growth; (B) read/extract
+directly from OneDrive via API, storing only extracted JSON in Postgres (pulls
+the §9 migration forward, partially); (C) some other split. Definition-of-done
+item §11.3 ("at least one real historical record backfilled") is correspondingly
+not met this sprint — known and accepted, not an oversight.
