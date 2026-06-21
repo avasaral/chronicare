@@ -7,6 +7,15 @@ import { ArrowLeft } from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -743,6 +752,289 @@ function LogList({
   );
 }
 
+// ─── Trend Charts ────────────────────────────────────────────────────────────
+
+type TrendPoint = Record<string, string | number | null>;
+
+function formatDateShort(dateStr: string) {
+  return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+type SingleTrend = {
+  label: string;
+  color: string;
+  points: { date: string; displayDate: string; value: number }[];
+};
+
+function buildSingleTrend(
+  logs: DailyEntry[],
+  field: keyof DailyEntry,
+  label: string,
+  color: string
+): SingleTrend | null {
+  const points: { date: string; displayDate: string; value: number }[] = [];
+  for (const log of logs) {
+    const v = log[field];
+    if (v != null && typeof v === "number") {
+      points.push({ date: log.date, displayDate: formatDateShort(log.date), value: v });
+    }
+  }
+  if (points.length < 2) return null;
+  points.sort((a, b) => a.date.localeCompare(b.date));
+  return { label, color, points };
+}
+
+function MiniChart({ trend }: { trend: SingleTrend }) {
+  const { label, color, points } = trend;
+  const latestVal = points[points.length - 1].value;
+
+  const allVals = points.map((p) => p.value);
+  const yMin = Math.min(...allVals);
+  const yMax = Math.max(...allVals);
+  const pad = Math.max((yMax - yMin) * 0.25, yMax * 0.05, 0.5);
+  const domainMin = Math.max(0, yMin - pad);
+  const domainMax = yMax + pad;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
+        <span className="text-xs font-semibold shrink-0 tabular-nums text-foreground/50">
+          {latestVal}
+        </span>
+      </div>
+
+      <ResponsiveContainer width="100%" height={96}>
+        <LineChart
+          data={points.map((p) => ({ date: p.displayDate, value: p.value }))}
+          margin={{ top: 4, right: 4, bottom: 0, left: -28 }}
+        >
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            domain={[domainMin, domainMax]}
+            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+            width={36}
+            tickCount={3}
+          />
+          <Tooltip
+            contentStyle={{
+              fontSize: 11,
+              borderRadius: "8px",
+              border: "1px solid #f1f5f9",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              padding: "4px 8px",
+            }}
+            formatter={(v: unknown) => [`${v}`, label]}
+          />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={2}
+            dot={{ r: 3, fill: color, strokeWidth: 0 }}
+            activeDot={{ r: 4 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+const GI_SYMPTOMS = [
+  { field: "stomach_pain" as keyof DailyEntry, label: "Stomach pain", color: "#f43f5e" },
+  { field: "bloating" as keyof DailyEntry, label: "Bloating", color: "#f97316" },
+  { field: "nausea" as keyof DailyEntry, label: "Nausea", color: "#a855f7" },
+  { field: "loose_stools" as keyof DailyEntry, label: "Loose stools", color: "#3b82f6" },
+  { field: "constipation" as keyof DailyEntry, label: "Constipation", color: "#14b8a6" },
+];
+
+function GIMultiLineChart({ logs }: { logs: DailyEntry[] }) {
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+
+  const hasAnyData = GI_SYMPTOMS.some((s) => {
+    const withData = sorted.filter((l) => l[s.field] != null);
+    return withData.length >= 2;
+  });
+  if (!hasAnyData) return null;
+
+  const data: TrendPoint[] = sorted.map((log) => {
+    const point: TrendPoint = {
+      date: log.date,
+      displayDate: formatDateShort(log.date),
+    };
+    for (const s of GI_SYMPTOMS) {
+      point[s.field] = log[s.field] as number | null;
+    }
+    return point;
+  });
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 space-y-2">
+      <p className="text-sm font-semibold text-foreground leading-tight">
+        GI Symptoms
+      </p>
+
+      <ResponsiveContainer width="100%" height={160}>
+        <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+          <XAxis
+            dataKey="displayDate"
+            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            domain={[0, 3]}
+            ticks={[0, 1, 2, 3]}
+            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+            width={36}
+          />
+          <Tooltip
+            contentStyle={{
+              fontSize: 11,
+              borderRadius: "8px",
+              border: "1px solid #f1f5f9",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              padding: "4px 8px",
+            }}
+            formatter={(v: unknown, name: unknown) => {
+              const n = String(name ?? "");
+              const s = GI_SYMPTOMS.find((gs) => gs.field === n);
+              return [`${v}`, s?.label ?? n];
+            }}
+          />
+          <Legend
+            iconType="line"
+            iconSize={10}
+            wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+            formatter={(value: string) => {
+              const s = GI_SYMPTOMS.find((gs) => gs.field === value);
+              return s?.label ?? value;
+            }}
+          />
+          {GI_SYMPTOMS.map((s) => (
+            <Line
+              key={s.field}
+              type="monotone"
+              dataKey={s.field}
+              name={s.field}
+              stroke={s.color}
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
+              activeDot={{ r: 4 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+
+      <p className="text-[11px] text-foreground/30">
+        0 = None · 1 = Mild · 2 = Moderate · 3 = Severe
+      </p>
+    </div>
+  );
+}
+
+function CategoryHeader({ label, first }: { label: string; first: boolean }) {
+  return (
+    <h3
+      className={`text-[11px] font-semibold text-foreground/40 uppercase tracking-widest ${
+        first ? "" : "mt-2"
+      }`}
+    >
+      {label}
+    </h3>
+  );
+}
+
+function TrendSection({ logs }: { logs: DailyEntry[] }) {
+  if (logs.length < 2) return null;
+
+  const wellbeing = [
+    buildSingleTrend(logs, "energy", "Energy", "#3b82f6"),
+    buildSingleTrend(logs, "mood", "Mood", "#8b5cf6"),
+    buildSingleTrend(logs, "pain_level", "Pain Level", "#f43f5e"),
+  ].filter((t): t is SingleTrend => t !== null);
+
+  const bm = [
+    buildSingleTrend(logs, "bm_frequency", "BM Frequency", "#f59e0b"),
+    buildSingleTrend(logs, "bm_consistency", "BM Consistency (Bristol)", "#ef4444"),
+  ].filter((t): t is SingleTrend => t !== null);
+
+  const sleep = [
+    buildSingleTrend(logs, "sleep_hours", "Sleep Hours", "#6366f1"),
+  ].filter((t): t is SingleTrend => t !== null);
+
+  const hasGI = GI_SYMPTOMS.some((s) => {
+    const withData = logs.filter((l) => l[s.field] != null);
+    return withData.length >= 2;
+  });
+
+  if (wellbeing.length === 0 && !hasGI && bm.length === 0 && sleep.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-5">
+      <h2 className="text-sm font-semibold text-foreground/50 uppercase tracking-wider px-1">
+        Trends
+      </h2>
+
+      {wellbeing.length > 0 && (
+        <div className="space-y-3">
+          <CategoryHeader label="Wellbeing" first />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {wellbeing.map((t) => (
+              <MiniChart key={t.label} trend={t} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasGI && (
+        <div className="space-y-3">
+          <CategoryHeader label="GI Symptoms" first={wellbeing.length === 0} />
+          <GIMultiLineChart logs={logs} />
+        </div>
+      )}
+
+      {bm.length > 0 && (
+        <div className="space-y-3">
+          <CategoryHeader label="Bowel Movements" first={wellbeing.length === 0 && !hasGI} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {bm.map((t) => (
+              <MiniChart key={t.label} trend={t} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sleep.length > 0 && (
+        <div className="space-y-3">
+          <CategoryHeader label="Sleep" first={wellbeing.length === 0 && !hasGI && bm.length === 0} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sleep.map((t) => (
+              <MiniChart key={t.label} trend={t} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Page Shell ───────────────────────────────────────────────────────────────
 
 export default function DailyTrackerClient({
@@ -805,6 +1097,8 @@ export default function DailyTrackerClient({
           targetDate={activeDate}
           userId={userId}
         />
+
+        <TrendSection logs={logs} />
 
         {logs.length > 0 && (
           <section className="space-y-3">

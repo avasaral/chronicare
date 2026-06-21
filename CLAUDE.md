@@ -71,7 +71,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 ## Key components
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
 - src/app/medications/MedicationsClient.tsx — all medication UI including cards, forms
-- src/app/daily-tracker/DailyTrackerClient.tsx — full daily tracker form; exports DailyEntry type
+- src/app/daily-tracker/DailyTrackerClient.tsx — full daily tracker form + trend charts (Recharts); exports DailyEntry type
 - src/app/api/extract-lab/route.ts — PDF upload + Claude API extraction
 - src/lib/lab-extraction.ts — shared extraction library: LAB_SYSTEM_PROMPT, parseDateFromFilename, parseClaudeResponse
 - src/app/api/reextract-lab/route.ts — re-run Claude on a stored PDF; updates row in place (never inserts)
@@ -93,7 +93,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /login — email + password auth
 - /dashboard — summary view
 - /medications — medication log with dose history
-- /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
+- /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills) + trend charts (wellbeing, GI multi-line, bowel movements, sleep — requires 2+ entries with data)
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 - /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs

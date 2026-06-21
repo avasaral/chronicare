@@ -193,11 +193,38 @@ Reason: judgment call on exact wording — matches the pattern used elsewhere (e
 This pass deliberately excludes daily_tracker entries from the timeline.
 Reason: explicit scope constraint from the build request. daily_tracker integration is a follow-on.
 
+## Daily Tracker trend chart decisions
+
+### V1 priority — not V2 backlog
+PRD §5.2 explicitly calls the Daily Tracker trend chart "core to V1" and "not optional polish." It was incorrectly filed in the V2 backlog below in an earlier session. Corrected and built as V1 scope.
+
+### Field selection
+11 dimensions charted across 4 sections, with GI symptoms combined into one multi-line chart:
+- **Wellbeing (3 MiniCharts):** Energy, Mood, Pain Level — each independently clinically meaningful for flare detection.
+- **GI Symptoms (1 multi-line chart):** Stomach pain, bloating, nausea, loose stools, constipation — all share the same 0-3 severity scale, so they share one chart with a legend. Five separate panels would be too noisy for a quick mobile scan.
+- **Bowel Movements (2 MiniCharts):** BM Frequency, BM Consistency (Bristol) — the two most important objective Crohn's metrics.
+- **Sleep (1 MiniChart):** Sleep Hours — disrupted sleep correlates with active disease.
+
+### Fields deliberately excluded
+- **Sleep quality (0-3):** Too coarse for a line chart (4 values). Sleep hours captures the meaningful trend.
+- **Medication taken (boolean):** Not directly chartable as a trend line. See "Medication adherence indicator" below.
+- **Junk/sugar flag (boolean):** Same — binary, not a continuous trend.
+- **Text fields (food, exercise, school, skills, notes):** Not numeric, not chartable.
+
+### Medication adherence indicator — known gap
+medication_taken is a daily boolean. A line chart is the wrong visualization; the clinically useful view is adherence-percentage-per-week (e.g. "5/7 days this week"). This is relevant per PRD §1 — adherence correlated against symptom spikes is one of the core reasons the tool exists. Deferred as a future indicator (not a MiniChart), distinct from this build.
+
+### Rendering threshold
+Each chart requires 2+ entries with non-null data for that field — same threshold as lab trends. Entire TrendSection hidden when fewer than 2 logs exist.
+
+### Layout
+Placed between the entry form and the 14-day list view. Reuses the same Recharts LineChart + ResponsiveContainer pattern as LabsClient's MiniChart/TrendSection. Category-grouped with section headers matching the form sections.
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
 - Provider view (read-only, user controls what's visible)
-- Symptom trend chart (Recharts fix)
+- Medication adherence weekly indicator (see "Medication adherence indicator — known gap" above)
 - Google Drive / OneDrive integration for PHI-local storage
 - Edit dose history with audit trail
 - Lab appointment reminders
