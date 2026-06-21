@@ -88,10 +88,21 @@ just trust each prompt's own "update the docs" step in isolation.
 
 ---
 
-## Day 4 — [date]
-**Shipped:**
-**Broke:**
-**Next:**
+## Day 4 — 2026-06-21
+**Shipped:** Unified timeline (§6.5), scoped to labs + visits only (daily_tracker
+deferred). Display-layer merge of lab_results + medical_visits, no new table —
+same rationale class as resolveCategory()/testKey(). Vertical list grouped by
+date, read-only inline expand (no edit/delete from this view). Built as a plain
+list first per deliberate de-scope from PRD's "zoomable" wording — anticipated
+value, not yet validated by Vidya, so kept the bet small. Restyled to a vertical
+spine with type-coded markers (icon-based) after initial review. Unlinked from
+nav — direct URL only, pending real-world test before wider exposure.
+**Broke:** Nothing — no new table, no new mutation paths, lowest-risk build
+of the sprint so far. 
+**Next:** Decide whether /timeline earns a nav link after more real use, or
+whether zoom/pan is worth building once the merge logic has proven itself.
+Therapist/school notes (deferred from Day 3) still open. daily_tracker
+integration into timeline still pending — explicitly out of scope this pass.
 
 ---
 

@@ -284,6 +284,13 @@ export default function TimelineClient({
   const entries = normalizeEntries(labs, visits);
   const grouped = groupByDate(entries);
 
+  const flatEntries: { entry: TimelineEntry; isFirstInGroup: boolean }[] = [];
+  for (const [, dateEntries] of grouped) {
+    dateEntries.forEach((entry, i) => {
+      flatEntries.push({ entry, isFirstInGroup: i === 0 });
+    });
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-white/80 backdrop-blur px-6 py-4">
@@ -301,7 +308,7 @@ export default function TimelineClient({
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-3xl mx-auto px-6 py-8">
         {entries.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-5 py-8 shadow-xs text-center">
             <p className="text-sm text-muted-foreground">
@@ -323,20 +330,55 @@ export default function TimelineClient({
             </p>
           </div>
         ) : (
-          [...grouped.entries()].map(([date, dateEntries]) => (
-            <section key={date} className="space-y-3">
-              <h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest">
-                {formatDate(date)}
-              </h2>
-              {dateEntries.map((entry) =>
-                entry.type === "lab" ? (
-                  <LabCard key={`lab-${entry.id}`} entry={entry} />
-                ) : (
-                  <VisitCard key={`visit-${entry.id}`} entry={entry} />
-                )
-              )}
-            </section>
-          ))
+          flatEntries.map(({ entry, isFirstInGroup }, i) => {
+            const isFirst = i === 0;
+            const isLast = i === flatEntries.length - 1;
+            const isLab = entry.type === "lab";
+
+            return (
+              <div
+                key={`${entry.type}-${entry.id}`}
+                className="flex"
+              >
+                {/* Spine column */}
+                <div className="flex flex-col items-center w-10 shrink-0">
+                  <div
+                    className={`w-px flex-1 ${isFirst ? "bg-transparent" : "bg-border"}`}
+                  />
+                  <div
+                    className={`size-7 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      isLab
+                        ? "border-blue-200 bg-blue-50 text-blue-500"
+                        : "border-border bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isLab ? (
+                      <FlaskConical className="size-3.5" />
+                    ) : (
+                      <Stethoscope className="size-3.5" />
+                    )}
+                  </div>
+                  <div
+                    className={`w-px flex-1 ${isLast ? "bg-transparent" : "bg-border"}`}
+                  />
+                </div>
+
+                {/* Content column */}
+                <div className="flex-1 min-w-0 pb-6 pl-3">
+                  {isFirstInGroup && (
+                    <h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest mb-2 pt-1.5">
+                      {formatDate(entry.date)}
+                    </h2>
+                  )}
+                  {entry.type === "lab" ? (
+                    <LabCard entry={entry} />
+                  ) : (
+                    <VisitCard entry={entry} />
+                  )}
+                </div>
+              </div>
+            );
+          })
         )}
       </main>
     </div>
