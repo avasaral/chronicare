@@ -76,9 +76,10 @@ Reason: speed of implementation, sufficient for V1.
 Reason: amber signals "watch for" without being alarming (red).
 
 ### One entry per day in symptom log
-If today's entry exists, form switches to Update mode.
-Reason: prevents duplicate entries and makes the daily 
-habit clear.
+If today's entry exists, form switches to Update mode. Past entries are also editable inline — clicking "Edit" on a past-day row opens the full form pre-filled, saving as UPDATE WHERE id = entry.id (not INSERT). The unique constraint prevents duplicates regardless.
+No audit trail for edits. This is intentional: daily_tracker is a diary-style record where corrections are expected and silently acceptable.
+This is a deliberate asymmetry with dose_history, which is delete-only specifically to preserve clinical timeline integrity. See "No edit on dose history" above.
+Reason: prevents duplicate entries; inline editing avoids a separate correction flow for a diary-type record.
 
 ### Daily Tracker visual design
 Reference: Apple Health (soft tinted section cards, generous whitespace) + Streaks (large tap targets, functional color).
@@ -91,6 +92,30 @@ Reference: Apple Health (soft tinted section cards, generous whitespace) + Strea
 - All inputs use text-base (16px) — prevents iOS Safari auto-zoom on focus (critical for one-handed use)
 - Header: sticky, white/80 with backdrop-blur — stays visible while scrolling long form
 - Inter font: switched from Geist (which was never properly wired up). Inter chosen for crisper number/label rendering at small sizes. Wired via --font-inter CSS variable.
+
+## Lab extraction decisions
+
+### Category normalization at display layer (not stored)
+extracted_json.category is written from Claude's response as-is — never mutated in the DB.
+resolveCategory() in LabsClient maps known variants ("LFT", "Liver Function Test", "liver panel", etc.) to canonical strings at render time. Both TrendSection and CrossDateTable call the same resolveCategory() — single implementation, no drift risk.
+Reason: Claude's instruction-following is imperfect; categories vary across runs. Re-extracting all rows to normalize stored values re-runs Claude at cost and risks new inconsistencies. Display-layer alias map is free and stable.
+
+### Test name synonym map (display layer only)
+testKey() maps fixed clinical equivalences before grouping: SGOT→ast, SGPT→alt, PLT→platelet count, Hb/Hgb→haemoglobin.
+Stored test_name in extracted_json is never modified. resolveDisplayName() picks the canonical label (AST, ALT, etc.) for these keys.
+Reason: these are fixed, well-known clinical equivalences. Hardcoded — explicitly NOT a general fuzzy-matching solution.
+Open item: TC/WBC/DC variants not confirmed in DB; add to map if fragmentation is observed after re-extraction.
+
+### Cross-date table: per-cell flag from each report's own data
+Each cell uses that report's own flag field ("normal"/"low"/"high") — not a computed shared reference range.
+Reason: reference ranges vary by lab, instrument, and patient age. Using each report's own flag respects the original lab's interpretation.
+
+### Re-extraction: stored path first, time-correlation fallback
+/api/reextract-lab prefers row.storage_path. For rows uploaded before migration 20260620000003 (storage_path = null), it lists bucket files and selects the one uploaded within 120 seconds before the DB row's created_at (PDF upload → Claude → DB insert sequence).
+Limitation: if PDFs from deleted rows remain in storage, time-based matching may be ambiguous.
+
+### source_lab stored top-level, extracted by Claude
+Claude returns {report_date, source_lab, results} shape. source_lab (e.g. "Aster Clinical Lab") is stored in lab_results.source_lab and shown as a subtitle under each date column in the cross-date table.
 
 ## Cost decisions
 
@@ -106,7 +131,6 @@ architecture — user documents stay in user's own cloud.
 
 ## V2 backlog
 - Mobile-first responsive UI
-- Lab trend chart across multiple reports
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
 - Doctor visit notes section
 - Provider view (read-only, user controls what's visible)

@@ -492,7 +492,7 @@ function CrossDateTable({ results }: { results: PreviousResult[] }) {
       const entry = testIndex.get(key)!;
       entry.nameVariants.push(row.test_name);
       if (row.category && entry.category === UNCATEGORIZED) {
-        entry.category = row.category;
+        entry.category = resolveCategory(row.category);
       }
       entry.cells.set(result.id, {
         value: row.value,

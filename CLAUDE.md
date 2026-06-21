@@ -46,17 +46,25 @@ id, user_id, date, created_at
 - notes (text, catch-all)
 - one entry per user per day (unique constraint on user_id, date)
 - if entry exists for today: show in edit/update mode
+- past entries are editable inline (same form, UPDATE against that date's row, no audit trail)
 
 ### lab_results
-id, user_id, report_date, source_filename, extracted_json (jsonb), created_at
-- extracted_json is array of {test_name, value, unit, reference_range, flag}
+id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, source_lab (text, nullable), storage_path (text, nullable)
+- extracted_json is array of {test_name, value, unit, reference_range, flag, category}
+- category: one of 12 canonical strings (e.g. "CBC (Complete Blood Count)", "LFT (Liver Function Test)"); normalized at display time via resolveCategory()
+- source_lab: lab or hospital name extracted from the PDF by Claude
+- storage_path: path in "lab-reports" bucket (e.g. "{user_id}/{uuid}.pdf") — used for re-extraction
 - PDFs stored in Supabase Storage bucket "lab-reports" (private)
+- Rows uploaded before storage_path tracking have storage_path = null; re-extraction falls back to time-correlation
 
 ## Key components
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
 - src/app/medications/MedicationsClient.tsx — all medication UI including cards, forms
 - src/app/daily-tracker/DailyTrackerClient.tsx — full daily tracker form; exports DailyEntry type
 - src/app/api/extract-lab/route.ts — PDF upload + Claude API extraction
+- src/lib/lab-extraction.ts — shared extraction library: LAB_SYSTEM_PROMPT, parseDateFromFilename, parseClaudeResponse
+- src/app/api/reextract-lab/route.ts — re-run Claude on a stored PDF; updates row in place (never inserts)
+- src/app/labs/LabsClient.tsx — all lab UI: upload, previous results list (with Re-extract + Delete), trend charts, cross-date table
 
 ## Patterns established
 - Inline forms on cards (not modals) — see DoseChangeForm, EditMedicationForm
@@ -73,7 +81,7 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at
 - /medications — medication log with dose history
 - /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills)
 - /symptoms → redirects to /daily-tracker
-- /labs — lab PDF upload and extraction results
+- /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 
 ## Rules
 - RLS on every table
