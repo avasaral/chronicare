@@ -221,6 +221,16 @@ Each chart requires 2+ entries with non-null data for that field — same thresh
 ### Layout
 Placed between the entry form and the 14-day list view. Reuses the same Recharts LineChart + ResponsiveContainer pattern as LabsClient's MiniChart/TrendSection. Category-grouped with section headers matching the form sections.
 
+## Lab draw date reminder
+
+### next_lab_draw_date on user_settings table (not on lab_results)
+A new `user_settings` table (user_id PK, one row per user) holds `next_lab_draw_date` (date, nullable). Manually set via /labs inline control, shown on /dashboard.
+Reason: this is a per-user value, not tied to any specific lab_results row. No existing profile/settings table existed; creating one gives a clean extensible home. Deliberately NOT auto-computed from report_date (PRD §6.1 scope note — manual only).
+
+### Overdue rule: date < today
+If `next_lab_draw_date` is set and is before today's date, the dashboard displays it with red/overdue styling (red background, red text, "— overdue" suffix). Normal state uses standard card styling.
+No reminder shown at all if no date is set (no nudge — explicitly out of scope).
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
@@ -228,7 +238,7 @@ Placed between the entry form and the 14-day list view. Reuses the same Recharts
 - Medication adherence weekly indicator (see "Medication adherence indicator — known gap" above)
 - Google Drive / OneDrive integration for PHI-local storage
 - Edit dose history with audit trail
-- Lab appointment reminders
+- ~~Lab appointment reminders~~ — built (narrow scope: single next_lab_draw_date field on user_settings, manual-only). Generic appointments/reminders system remains V2.
 - Timeline: add daily_tracker entries, dose changes; add nav link to /timeline
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)

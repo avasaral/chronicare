@@ -57,6 +57,12 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, s
 - PDFs stored in Supabase Storage bucket "lab-reports" (private)
 - Rows uploaded before storage_path tracking have storage_path = null; re-extraction falls back to time-correlation
 
+### user_settings
+user_id (PK, FK auth.users), next_lab_draw_date (date, nullable), created_at, updated_at
+- One row per user (upsert pattern)
+- next_lab_draw_date: manually set by user, not computed from lab_results
+- Used on /dashboard to show reminder; overdue = date < today (red styling)
+
 ### medical_visits
 id, user_id, visit_date (date), provider_name (text), provider_specialty (text), visit_format (text), source_type (text), raw_image_path (text, nullable), extracted_text (text), notes (text, nullable), created_at
 - provider_specialty: CHECK constraint — 'GI', 'Primary Care', 'Other'
@@ -76,6 +82,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - src/lib/lab-extraction.ts — shared extraction library: LAB_SYSTEM_PROMPT, parseDateFromFilename, parseClaudeResponse
 - src/app/api/reextract-lab/route.ts — re-run Claude on a stored PDF; updates row in place (never inserts)
 - src/app/labs/LabsClient.tsx — all lab UI: upload, previous results list (with Re-extract + Delete), trend charts, cross-date table
+- src/app/api/user-settings/route.ts — GET/PUT for user_settings (next_lab_draw_date); upsert pattern
 - src/app/api/extract-visit/route.ts — image/PDF upload + Claude API OCR for visit notes
 - src/app/visits/VisitsClient.tsx — visit notes UI: two-mode form (paste text / upload image with OCR confirm step), past visits list with delete
 - src/app/timeline/TimelineClient.tsx — read-only unified timeline merging labs + visits, grouped by date, inline expand
@@ -91,11 +98,11 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 ## Pages
 - / → redirects to /dashboard
 - /login — email + password auth
-- /dashboard — summary view
+- /dashboard — summary view; shows next lab draw date reminder if set (overdue = red styling when past)
 - /medications — medication log with dose history
 - /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills) + trend charts (wellbeing, GI multi-line, bowel movements, sleep — requires 2+ entries with data)
 - /symptoms → redirects to /daily-tracker
-- /labs — lab PDF upload; previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
+- /labs — lab PDF upload; inline next-draw-date control (set/edit/clear); previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 - /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs
 - /timeline — read-only unified timeline (labs + visits merged by date), rendered as a vertical spine with type-coded markers (icon-based, not flat cards); no nav link yet, direct URL only; reads from lab_results and medical_visits (no new table)
 

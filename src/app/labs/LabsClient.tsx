@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -852,6 +852,118 @@ function UploadSection({
   );
 }
 
+// ─── Next Lab Draw Date ──────────────────────────────────────────────────────
+
+function NextDrawDateControl() {
+  const [date, setDate] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/user-settings")
+      .then((r) => r.json())
+      .then((d) => {
+        setDate(d.next_lab_draw_date);
+        setDraft(d.next_lab_draw_date ?? "");
+        setLoaded(true);
+      });
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch("/api/user-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next_lab_draw_date: draft || null }),
+    });
+    const d = await res.json();
+    setDate(d.next_lab_draw_date);
+    setSaving(false);
+    setEditing(false);
+  }
+
+  function clear() {
+    setDraft("");
+    setSaving(true);
+    fetch("/api/user-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next_lab_draw_date: null }),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        setDate(null);
+        setSaving(false);
+        setEditing(false);
+      });
+  }
+
+  if (!loaded) return null;
+
+  const isOverdue = date ? new Date(date + "T00:00:00") < new Date(new Date().toISOString().slice(0, 10) + "T00:00:00") : false;
+
+  return (
+    <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-xs">
+      <div className="flex items-center gap-3">
+        <CalendarDays className="size-4 text-muted-foreground shrink-0" />
+        {!editing ? (
+          <div className="flex items-center justify-between flex-1 gap-2">
+            <div className="text-sm">
+              {date ? (
+                <span className={isOverdue ? "text-red-600 font-medium" : "text-foreground"}>
+                  Next draw: {formatDate(date)}
+                  {isOverdue && " (overdue)"}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">No next draw date set</span>
+              )}
+            </div>
+            <button
+              onClick={() => { setDraft(date ?? ""); setEditing(true); }}
+              className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
+            >
+              {date ? "Edit" : "Set date"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-1">
+            <input
+              type="date"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+            />
+            <button
+              onClick={save}
+              disabled={saving}
+              className="text-xs px-2 py-1 rounded-md bg-foreground text-background font-medium disabled:opacity-40"
+            >
+              Save
+            </button>
+            {date && (
+              <button
+                onClick={clear}
+                disabled={saving}
+                className="text-xs text-red-500 hover:text-red-400 disabled:opacity-40"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              onClick={() => setEditing(false)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
 export default function LabsClient({
@@ -905,6 +1017,8 @@ export default function LabsClient({
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+        <NextDrawDateControl />
+
         <UploadSection onResults={handleResults} />
 
         {latestRows !== null && (

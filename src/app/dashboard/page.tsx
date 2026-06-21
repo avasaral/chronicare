@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Activity, FlaskConical, Pill, Stethoscope } from "lucide-react";
+import { Activity, CalendarDays, FlaskConical, Pill, Stethoscope } from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
 
 export default async function DashboardPage() {
@@ -14,7 +14,7 @@ export default async function DashboardPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: meds }, { data: todayLog }, { data: lastLab }, { data: lastVisit }] =
+  const [{ data: meds }, { data: todayLog }, { data: lastLab }, { data: lastVisit }, { data: settings }] =
     await Promise.all([
       supabase
         .from("medications")
@@ -37,10 +37,17 @@ export default async function DashboardPage() {
         .order("visit_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("user_settings")
+        .select("next_lab_draw_date")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
 
   const medications = meds ?? [];
   const symptomsLoggedToday = todayLog !== null;
+  const nextLabDrawDate = settings?.next_lab_draw_date ?? null;
+  const labDrawOverdue = nextLabDrawDate ? nextLabDrawDate < today : false;
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -139,6 +146,29 @@ export default async function DashboardPage() {
               )}
             </div>
           </Link>
+
+          {/* Next Lab Draw Reminder */}
+          {nextLabDrawDate && (
+            <Link
+              href="/labs"
+              className={`flex items-start gap-4 rounded-xl border px-5 py-4 shadow-xs hover:border-foreground/20 transition-colors ${
+                labDrawOverdue
+                  ? "border-red-200 bg-red-50"
+                  : "border-border bg-card"
+              }`}
+            >
+              <CalendarDays className={`size-5 mt-0.5 shrink-0 ${labDrawOverdue ? "text-red-500" : "text-muted-foreground"}`} />
+              <div className="min-w-0 flex-1">
+                <p className={`font-medium ${labDrawOverdue ? "text-red-700" : "text-foreground"}`}>
+                  Next Lab Draw
+                </p>
+                <p className={`mt-1 text-sm ${labDrawOverdue ? "text-red-600" : "text-muted-foreground"}`}>
+                  {formatDate(nextLabDrawDate)}
+                  {labDrawOverdue && " — overdue"}
+                </p>
+              </div>
+            </Link>
+          )}
 
           {/* Visit Notes */}
           <Link
