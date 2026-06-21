@@ -46,6 +46,7 @@ const SPECIALTIES = [
 const FORMATS = [
   { value: "in_person", label: "In-person" },
   { value: "virtual", label: "Virtual" },
+  { value: "follow_up", label: "Follow-up" },
 ];
 
 // ─── Visit Card ───────────────────────────────────────────────────────────────
@@ -138,7 +139,12 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
   }
 
   const formatLabel =
-    visit.visit_format === "in_person" ? "In-person" : "Virtual";
+    visit.visit_format === "in_person"
+      ? "In-person"
+      : visit.visit_format === "follow_up"
+        ? "Follow-up"
+        : "Virtual";
+  const entryLabel = visit.visit_format === "follow_up" ? "Follow-up" : "Visit";
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
@@ -154,7 +160,7 @@ function VisitCard({ visit }: { visit: MedicalVisit }) {
         >
           <div className="flex flex-col items-start gap-0.5">
             <span className="text-sm font-medium text-foreground">
-              {visit.provider_name}
+              {entryLabel} · {visit.provider_name}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatDate(visit.visit_date)} · {visit.provider_specialty} ·{" "}

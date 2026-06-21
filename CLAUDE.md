@@ -60,7 +60,7 @@ id, user_id, report_date, source_filename, extracted_json (jsonb), created_at, s
 ### medical_visits
 id, user_id, visit_date (date), provider_name (text), provider_specialty (text), visit_format (text), source_type (text), raw_image_path (text, nullable), extracted_text (text), notes (text, nullable), created_at
 - provider_specialty: CHECK constraint — 'GI', 'Primary Care', 'Other'
-- visit_format: CHECK constraint — 'in_person', 'virtual'
+- visit_format: CHECK constraint — 'in_person', 'virtual', 'follow_up'
 - source_type: CHECK constraint — 'pasted_text', 'image_upload'
 - raw_image_path: path in "visit-images" bucket (e.g. "{user_id}/{uuid}.jpg" or ".pdf") — retained permanently as reference original
 - extracted_text: final reviewed/edited text; pre-filled by Claude OCR for image uploads, pasted directly for text mode

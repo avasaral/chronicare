@@ -28,7 +28,7 @@ export default async function DashboardPage() {
       supabase
         .from("lab_results")
         .select("report_date, source_filename")
-        .order("created_at", { ascending: false })
+        .order("report_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase

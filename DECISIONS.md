@@ -148,6 +148,14 @@ Reconsidered when edit-after-save was added, given the accuracy requirement on v
 medical_visits uses SQL CHECK constraints for its enum-like fields, unlike daily_tracker which relies on UI-only enforcement.
 Reason: these are small, stable fixed lists (3, 2, and 2 values respectively) that are unlikely to change. Bad data in these columns would break filtering and display logic. daily_tracker's enum-like fields (severity 0-3, Bristol 1-7) use range CHECKs but not value-list CHECKs because they're numeric scales, not categorical labels. For categorical text fields with a fixed vocabulary, DB-level enforcement prevents bad data from any future API caller.
 
+### All longitudinal lists sort by real-world date, not upload/creation time
+daily_tracker sorts by date, lab_results by report_date, medical_visits by visit_date — all descending.
+Reason: backfilling an old record should slot it in by its actual date, not jump it to the top. This consistency is also a prerequisite for the future unified timeline (§6.5) to merge records from different tables by their real-world dates.
+
+### follow_up as a visit_format value (same table, not a separate type)
+Ad-hoc follow-up communication with a provider (emailed update, phone call) is stored in medical_visits with visit_format = 'follow_up', alongside 'in_person' and 'virtual'.
+Reason: follow-ups share all the same fields as visits — date, provider, notes, source type. A separate table would duplicate schema for no structural benefit. Keeping them in one table with one date field means the future unified timeline (§6.5) can pull both visits and follow-ups from a single query with no special-casing.
+
 ## V2 backlog
 - Mobile-first responsive UI
 - Medication cross-reference in Daily Tracker: pull current meds list as checkboxes instead of free-text medication_details field. Not built in V1 — medication_details is free text for now. Future improvement: join daily_tracker.medication_details against medications table and render as pre-populated checklist.
