@@ -30,10 +30,28 @@ existing extraction pipeline.
 
 ---
 
-## Day 2 — [date]
-**Shipped:**
-**Broke:**
-**Next:**
+## Day 2 — 2026-06-21
+**Shipped:** Lab trend charts + cross-date table (§6.1), category-grouped 
+(fixed canonical list, display-layer normalized via resolveCategory()). 
+Added source_lab + storage_path to lab_results. Re-extraction tooling 
+(per-row + "re-extract all") to backfill category onto existing reports. 
+Test name normalization: case-insensitive + hardcoded synonym map 
+(SGOT→AST, SGPT→ALT, etc.) — known clinical equivalences only, not 
+general fuzzy matching. Daily Tracker: past-day entries now editable 
+inline (same form, silent overwrite, no audit trail — deliberate, 
+documented contrast with dose_history). PRD committed to repo as 
+canonical (manual commit, untouched today).
+**Broke:** /labs briefly showed no data after schema changes (rows 
+extracted pre-category-field weren't backfiled cleanly — resolved via 
+re-extraction). Found and fixed a real bug during end-of-day doc audit: 
+CrossDateTable's category fallback wrote raw category instead of 
+resolveCategory() output, the one path where table/chart could've 
+silently diverged — fixed before docs were written.
+**Next:** Confirm unified timeline (§6.5) is still blocked on doctor 
+visit notes (§6.3) not yet existing as a data source — likely build 
+§6.3 next rather than timeline directly. Parked: general fuzzy/semantic 
+test-name matching (e.g. "CRP" vs "C-Reactive Protein") still unsolved, 
+needs real examples if they surface.
 
 ---
 
