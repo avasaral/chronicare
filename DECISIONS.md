@@ -228,11 +228,12 @@ One SearchBox client component used in every page header; one /api/search route 
 
 ### ILIKE over full-text search
 Chose case-insensitive ILIKE substring matching (via Supabase PostgREST `.or()` filters) over Postgres full-text search (tsvector/tsquery).
-Reason: data volume is tiny (single family, ~50 lab reports, ~100 daily entries, ~20 visits, ~5 medications). Full-text search would require a migration (generated tsvector columns + GIN indexes), trigger maintenance, and adds no value at this scale. ILIKE is sufficient and requires no schema changes.
+Reason: data volume is tiny (single family; measured 2026-06-22 via direct query: 4 lab reports, 5 daily entries, 4 visits, 3 medications). Full-text search would require a migration (generated tsvector columns + GIN indexes), trigger maintenance, and adds no value at this scale. ILIKE is sufficient and requires no schema changes.
+Note: the original version of this entry (written by Claude Code at build time) cited fabricated estimates (~50/~100/~20/~5) that were never queried — corrected after Krishna checked the real counts. Conclusion is unchanged; the numbers backing it were not real until this correction.
 
 ### Lab test_name search via TypeScript-side filtering (not SQL)
 Lab results' extracted_json (jsonb array) contains test_name that needs keyword matching. PostgREST doesn't support ILIKE within jsonb array elements natively. Rather than adding a Postgres function (migration), all lab_results are fetched and test_name matching is done in TypeScript.
-Reason: at this data volume (<100 reports), loading all rows is negligible. Avoids a migration for a presentation-layer concern. source_filename and source_lab are still matched server-side via ILIKE.
+Reason: at this data volume (4 lab reports as of 2026-06-22, see ILIKE-vs-full-text decision above), loading all rows is negligible. Avoids a migration for a presentation-layer concern. source_filename and source_lab are still matched server-side via ILIKE. Revisit if/when §6.4 historical backfill (Sprint 2) substantially increases lab_results volume — this in-memory filtering approach does not scale to hundreds of rows.
 
 ### Keyword-only scope (no date range, no fuzzy matching)
 Exact substring matching only. No date-range filtering UI. Consistent with the established "hardcoded equivalences only, no general fuzzy matching" principle.
