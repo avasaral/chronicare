@@ -107,7 +107,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; inline next-draw-date control (set/edit/clear); previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 - /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs
-- /timeline — read-only unified timeline (labs + visits merged by date), rendered as a vertical spine with type-coded markers (icon-based, not flat cards); no nav link yet, direct URL only; reads from lab_results and medical_visits (no new table)
+- /timeline — read-only unified timeline (labs + visits merged by date), rendered as a vertical spine with type-coded markers (icon-based, not flat cards); reads from lab_results and medical_visits (no new table)
 
 ## Rules
 - RLS on every table

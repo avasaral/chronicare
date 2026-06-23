@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Activity, CalendarDays, FlaskConical, Pill, Stethoscope } from "lucide-react";
+import { Activity, CalendarDays, FlaskConical, History, Pill, Stethoscope } from "lucide-react";
 import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 
@@ -195,6 +195,20 @@ export default async function DashboardPage() {
                   No visits logged yet
                 </p>
               )}
+            </div>
+          </Link>
+
+          {/* Timeline */}
+          <Link
+            href="/timeline"
+            className="flex items-start gap-4 rounded-xl border border-border bg-card px-5 py-4 shadow-xs hover:border-foreground/20 transition-colors"
+          >
+            <History className="size-5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">Timeline</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Unified view of labs & visits
+              </p>
             </div>
           </Link>
         </div>

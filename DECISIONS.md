@@ -267,6 +267,13 @@ No reminder shown at all if no date is set (no nudge — explicitly out of scope
 - ~~Image support for lab uploads (JPG/PNG)~~ — revised 2026-06-21: assumed a general Bangalore WhatsApp-image pattern that doesn't match this family's actual labs (PDF-only in practice). Removed as a requirement, not deferred. Re-add only if a real instance of this need appears (e.g. multi-family expansion).
 - Multi-patient support
 
+### /timeline promoted to primary navigation
+Decision (2026-06-23): /timeline graduated from direct-URL-only to a full nav card
+on the dashboard. Real-world use over the past week confirmed it serves the daily
+look-back case (Krishna/Vidya reviewing recent labs + visits on iPhone) — distinct
+from the still-unbuilt §6.7 doctor-facing provider view, which would be a separate
+read-only export. No content or behavior changes; purely a discoverability promotion.
+
 ## Sprint 2 — explicitly deferred (not forgotten)
 
 ### Full history ingestion (PRD §6.4) — deferred to Sprint 2
