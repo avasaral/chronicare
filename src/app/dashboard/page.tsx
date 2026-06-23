@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Activity, CalendarDays, FlaskConical, Pill, Stethoscope } from "lucide-react";
+import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 
 export default async function DashboardPage() {
@@ -63,7 +64,10 @@ export default async function DashboardPage() {
       <header className="border-b border-border bg-card px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-semibold text-foreground">ChroniCare</h1>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <SearchBox />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

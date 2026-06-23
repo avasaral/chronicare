@@ -221,6 +221,25 @@ Each chart requires 2+ entries with non-null data for that field — same thresh
 ### Layout
 Placed between the entry form and the 14-day list view. Reuses the same Recharts LineChart + ResponsiveContainer pattern as LabsClient's MiniChart/TrendSection. Category-grouped with section headers matching the form sections.
 
+## Search decisions
+
+### Shared component + single API route (SearchBox + /api/search)
+One SearchBox client component used in every page header; one /api/search route as the single source of truth for matching logic. Same lesson as resolveCategory()/testKey() — one implementation, no copy-pasted variants across pages.
+
+### ILIKE over full-text search
+Chose case-insensitive ILIKE substring matching (via Supabase PostgREST `.or()` filters) over Postgres full-text search (tsvector/tsquery).
+Reason: data volume is tiny (single family, ~50 lab reports, ~100 daily entries, ~20 visits, ~5 medications). Full-text search would require a migration (generated tsvector columns + GIN indexes), trigger maintenance, and adds no value at this scale. ILIKE is sufficient and requires no schema changes.
+
+### Lab test_name search via TypeScript-side filtering (not SQL)
+Lab results' extracted_json (jsonb array) contains test_name that needs keyword matching. PostgREST doesn't support ILIKE within jsonb array elements natively. Rather than adding a Postgres function (migration), all lab_results are fetched and test_name matching is done in TypeScript.
+Reason: at this data volume (<100 reports), loading all rows is negligible. Avoids a migration for a presentation-layer concern. source_filename and source_lab are still matched server-side via ILIKE.
+
+### Keyword-only scope (no date range, no fuzzy matching)
+Exact substring matching only. No date-range filtering UI. Consistent with the established "hardcoded equivalences only, no general fuzzy matching" principle.
+
+### Result linking — page-level, not record-level
+Search results link to the source page (/medications, /daily-tracker, /labs, /visits) but do not deep-link or scroll to a specific record. Scroll-to-record would require query param handling + scroll logic in each page component — deferred as follow-on if needed.
+
 ## Lab draw date reminder
 
 ### next_lab_draw_date on user_settings table (not on lab_results)
@@ -243,7 +262,7 @@ No reminder shown at all if no date is set (no nudge — explicitly out of scope
 - Therapist notes (separate table, near-identical to medical_visits — add session_type, therapist-specific fields)
 - School feedback notes (separate table, near-identical to medical_visits — add teacher_name, school-specific fields)
 - Visit tagging: link medical_visits to medications or lab_results (e.g. "this visit led to this dose change")
-- Search across medications, daily_tracker, lab_results, medical_visits by name/symptom/date range/keyword (PRD §6.6) — flagged 2026-06-21 as missing from this backlog despite being in the PRD; not previously tracked here
+- ~~Search across medications, daily_tracker, lab_results, medical_visits by name/symptom/date range/keyword (PRD §6.6)~~ — built (keyword substring only, no date-range filtering). Deep-link to specific records and date-range filtering remain follow-ons.
 - ~~Image support for lab uploads (JPG/PNG)~~ — revised 2026-06-21: assumed a general Bangalore WhatsApp-image pattern that doesn't match this family's actual labs (PDF-only in practice). Removed as a requirement, not deferred. Re-add only if a real instance of this need appears (e.g. multi-family expansion).
 - Multi-patient support
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -1076,7 +1077,10 @@ export default function DailyTrackerClient({
             </Link>
             <h1 className="text-lg font-semibold text-foreground">Daily Tracker</h1>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <SearchBox />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

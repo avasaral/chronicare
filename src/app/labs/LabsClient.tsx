@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -1012,7 +1013,10 @@ export default function LabsClient({
               Lab Results
             </h1>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <SearchBox />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

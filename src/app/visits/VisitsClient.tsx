@@ -12,6 +12,7 @@ import {
   Camera,
   ImageIcon,
 } from "lucide-react";
+import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
 import type { MedicalVisit } from "./page";
@@ -726,7 +727,10 @@ export default function VisitsClient({
               Visit Notes
             </h1>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <SearchBox />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronUp, Plus, ArrowLeft, Clock, Pencil, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 
 type DoseHistoryEntry = {
@@ -841,7 +842,10 @@ export default function MedicationsClient({
             </Link>
             <h1 className="text-xl font-semibold text-foreground">Medications</h1>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <SearchBox />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

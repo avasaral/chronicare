@@ -75,6 +75,8 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - Editable inline after save (same pattern as daily_tracker past-entry editing — UPDATE by id, no audit trail, caregiver-curated content)
 
 ## Key components
+- src/components/SearchBox.tsx — shared keyword search: input in every page header, results dropdown grouped by type; calls /api/search
+- src/app/api/search/route.ts — single search endpoint: ILIKE on medications/daily_tracker/medical_visits text fields, TypeScript-side filtering for lab_results extracted_json test names; returns unified results grouped by type
 - src/components/SignOutButton.tsx — shared logout button used in all page headers
 - src/app/medications/MedicationsClient.tsx — all medication UI including cards, forms
 - src/app/daily-tracker/DailyTrackerClient.tsx — full daily tracker form + trend charts (Recharts); exports DailyEntry type
@@ -96,6 +98,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - No mock or placeholder data anywhere
 
 ## Pages
+- All protected pages (dashboard, medications, daily-tracker, labs, visits) have a shared SearchBox in the header — keyword search across all tables, results as inline dropdown
 - / → redirects to /dashboard
 - /login — email + password auth
 - /dashboard — summary view; shows next lab draw date reminder if set (overdue = red styling when past)
