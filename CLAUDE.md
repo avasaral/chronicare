@@ -87,6 +87,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - src/app/api/user-settings/route.ts — GET/PUT for user_settings (next_lab_draw_date); upsert pattern
 - src/app/api/extract-visit/route.ts — image/PDF upload + Claude API OCR for visit notes
 - src/app/visits/VisitsClient.tsx — visit notes UI: two-mode form (paste text / upload image with OCR confirm step), past visits list with delete
+- src/app/api/parse-daily-log/route.ts — POST, accepts free text, returns parsed daily_tracker JSON via Claude Haiku (Quick Log feature)
 - src/app/timeline/TimelineClient.tsx — read-only unified timeline merging labs + visits, grouped by date, inline expand
 
 ## Patterns established

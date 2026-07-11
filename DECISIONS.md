@@ -81,6 +81,10 @@ No audit trail for edits. This is intentional: daily_tracker is a diary-style re
 This is a deliberate asymmetry with dose_history, which is delete-only specifically to preserve clinical timeline integrity. See "No edit on dose history" above.
 Reason: prevents duplicate entries; inline editing avoids a separate correction flow for a diary-type record.
 
+### Quick Log is an input-layer feature only
+Pre-fills the existing daily tracker form, shares the existing save path, no new table or schema. Voice input handled via iOS native keyboard microphone key on any standard textarea — no custom voice implementation needed or built.
+Judgment call: the visits OCR flow doesn't have an actual banner component to copy — its "confirm" signal is inline amber text next to each field ("extracted, please confirm"). Quick Log's requirement was explicitly a dismissible banner, so one was built using the same amber/confirm color semantics already established (rose/amber = "review this"), rather than inventing a new color language. No new visual pattern beyond that.
+
 ### Daily Tracker visual design
 Reference: Apple Health (soft tinted section cards, generous whitespace) + Streaks (large tap targets, functional color).
 - Page background: #f2f2f7 (iOS system gray) — immediately health-app native, not generic white

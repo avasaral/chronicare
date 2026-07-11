@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mic, X } from "lucide-react";
 import SearchBox from "@/components/SearchBox";
 import SignOutButton from "@/components/SignOutButton";
 import { createClient } from "@/lib/supabase/client";
@@ -51,6 +51,38 @@ export type DailyEntry = {
   skills_notes: string | null;
   notes: string | null;
 };
+
+// Fields Claude can extract from a Quick Log free-text entry.
+export type QuickLogParsed = Partial<
+  Pick<
+    DailyEntry,
+    | "mood"
+    | "energy"
+    | "pain_level"
+    | "stomach_pain"
+    | "bloating"
+    | "nausea"
+    | "loose_stools"
+    | "constipation"
+    | "bm_frequency"
+    | "bm_consistency"
+    | "breakfast"
+    | "morning_snack"
+    | "lunch"
+    | "evening_snack"
+    | "dinner"
+    | "junk_sugar_flag"
+    | "exercise"
+    | "slept_at"
+    | "woke_at"
+    | "sleep_quality"
+    | "medication_taken"
+    | "medication_details"
+    | "school_notes"
+    | "skills_notes"
+    | "notes"
+  >
+>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -318,56 +350,188 @@ function YesNoSelector({
   );
 }
 
+// ─── Quick Log ────────────────────────────────────────────────────────────────
+
+function QuickLogCard({
+  onParsed,
+}: {
+  onParsed: (data: QuickLogParsed) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!text.trim()) return;
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/parse-daily-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't parse that — please try again.");
+        return;
+      }
+
+      onParsed(data as QuickLogParsed);
+      setText("");
+      setOpen(false);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border p-5 space-y-4 bg-indigo-50 border-indigo-100/80">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-foreground/40">
+          Quick Log
+        </p>
+        {open && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+            }}
+            className="text-xs text-foreground/40 hover:text-foreground/70 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/70 border border-indigo-200 py-3.5 text-sm font-semibold text-indigo-700 hover:bg-white transition-all active:scale-95"
+        >
+          <Mic className="size-4" />
+          Quick Log — describe her day
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <textarea
+            value={text}
+            onChange={(ev) => setText(ev.target.value)}
+            className={TEXTAREA}
+            rows={5}
+            autoFocus
+            placeholder="Describe Ananya's day in your own words — symptoms, food, sleep, medication, mood, anything that happened."
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || !text.trim()}
+            className="w-full h-12 text-base rounded-xl"
+          >
+            {loading ? "Parsing…" : "Submit"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuickLogBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-sm text-amber-800">
+        Filled from your quick log — review all fields and complete any blanks
+        before saving.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="shrink-0 text-amber-600 hover:text-amber-800 transition-colors"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Entry Form (today or any past date) ──────────────────────────────────────
 
 function EntryForm({
   entry,
   targetDate,
   userId,
+  quickLogPrefill,
 }: {
   entry: DailyEntry | null;
   targetDate: string;
   userId: string;
+  quickLogPrefill?: QuickLogParsed | null;
 }) {
   const router = useRouter();
   const isEdit = entry !== null;
   const e = entry;
+  const q = quickLogPrefill;
   const isToday = targetDate === todayStr();
 
-  const [mood, setMood] = useState(e?.mood ?? 3);
-  const [energy, setEnergy] = useState(e?.energy ?? 3);
-  const [painLevel, setPainLevel] = useState(e?.pain_level ?? 3);
+  const [mood, setMood] = useState(e?.mood ?? q?.mood ?? 3);
+  const [energy, setEnergy] = useState(e?.energy ?? q?.energy ?? 3);
+  const [painLevel, setPainLevel] = useState(e?.pain_level ?? q?.pain_level ?? 3);
 
-  const [stomachPain, setStomachPain] = useState<number | null>(e?.stomach_pain ?? null);
-  const [bloating, setBloating] = useState<number | null>(e?.bloating ?? null);
-  const [nausea, setNausea] = useState<number | null>(e?.nausea ?? null);
-  const [looseStools, setLooseStools] = useState<number | null>(e?.loose_stools ?? null);
-  const [constipation, setConstipation] = useState<number | null>(e?.constipation ?? null);
+  const [stomachPain, setStomachPain] = useState<number | null>(
+    e?.stomach_pain ?? q?.stomach_pain ?? null
+  );
+  const [bloating, setBloating] = useState<number | null>(e?.bloating ?? q?.bloating ?? null);
+  const [nausea, setNausea] = useState<number | null>(e?.nausea ?? q?.nausea ?? null);
+  const [looseStools, setLooseStools] = useState<number | null>(
+    e?.loose_stools ?? q?.loose_stools ?? null
+  );
+  const [constipation, setConstipation] = useState<number | null>(
+    e?.constipation ?? q?.constipation ?? null
+  );
 
-  const [bmFrequency, setBmFrequency] = useState<number | null>(e?.bm_frequency ?? null);
-  const [bmConsistency, setBmConsistency] = useState<number | null>(e?.bm_consistency ?? null);
+  const [bmFrequency, setBmFrequency] = useState<number | null>(
+    e?.bm_frequency ?? q?.bm_frequency ?? null
+  );
+  const [bmConsistency, setBmConsistency] = useState<number | null>(
+    e?.bm_consistency ?? q?.bm_consistency ?? null
+  );
 
-  const [breakfast, setBreakfast] = useState(e?.breakfast ?? "");
-  const [morningSnack, setMorningSnack] = useState(e?.morning_snack ?? "");
-  const [lunch, setLunch] = useState(e?.lunch ?? "");
-  const [eveningSnack, setEveningSnack] = useState(e?.evening_snack ?? "");
-  const [dinner, setDinner] = useState(e?.dinner ?? "");
-  const [junkSugarFlag, setJunkSugarFlag] = useState<boolean | null>(e?.junk_sugar_flag ?? null);
+  const [breakfast, setBreakfast] = useState(e?.breakfast ?? q?.breakfast ?? "");
+  const [morningSnack, setMorningSnack] = useState(e?.morning_snack ?? q?.morning_snack ?? "");
+  const [lunch, setLunch] = useState(e?.lunch ?? q?.lunch ?? "");
+  const [eveningSnack, setEveningSnack] = useState(e?.evening_snack ?? q?.evening_snack ?? "");
+  const [dinner, setDinner] = useState(e?.dinner ?? q?.dinner ?? "");
+  const [junkSugarFlag, setJunkSugarFlag] = useState<boolean | null>(
+    e?.junk_sugar_flag ?? q?.junk_sugar_flag ?? null
+  );
   const [junkSugarDetails, setJunkSugarDetails] = useState(e?.junk_sugar_details ?? "");
 
-  const [exercise, setExercise] = useState(e?.exercise ?? "");
-  const [sleptAt, setSleptAt] = useState(e?.slept_at ?? "");
-  const [wokeAt, setWokeAt] = useState(e?.woke_at ?? "");
-  const [sleepQuality, setSleepQuality] = useState<number | null>(e?.sleep_quality ?? null);
+  const [exercise, setExercise] = useState(e?.exercise ?? q?.exercise ?? "");
+  const [sleptAt, setSleptAt] = useState(e?.slept_at ?? q?.slept_at ?? "");
+  const [wokeAt, setWokeAt] = useState(e?.woke_at ?? q?.woke_at ?? "");
+  const [sleepQuality, setSleepQuality] = useState<number | null>(
+    e?.sleep_quality ?? q?.sleep_quality ?? null
+  );
 
   const [medicationTaken, setMedicationTaken] = useState<boolean | null>(
-    e?.medication_taken ?? null
+    e?.medication_taken ?? q?.medication_taken ?? null
   );
-  const [medicationDetails, setMedicationDetails] = useState(e?.medication_details ?? "");
+  const [medicationDetails, setMedicationDetails] = useState(
+    e?.medication_details ?? q?.medication_details ?? ""
+  );
 
-  const [schoolNotes, setSchoolNotes] = useState(e?.school_notes ?? "");
-  const [skillsNotes, setSkillsNotes] = useState(e?.skills_notes ?? "");
-  const [notes, setNotes] = useState(e?.notes ?? "");
+  const [schoolNotes, setSchoolNotes] = useState(e?.school_notes ?? q?.school_notes ?? "");
+  const [skillsNotes, setSkillsNotes] = useState(e?.skills_notes ?? q?.skills_notes ?? "");
+  const [notes, setNotes] = useState(e?.notes ?? q?.notes ?? "");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1049,18 +1213,32 @@ export default function DailyTrackerClient({
 }) {
   const [activeEntry, setActiveEntry] = useState<DailyEntry | null>(todayEntry);
   const [activeDate, setActiveDate] = useState<string>(todayStr());
+  const [quickLogPrefill, setQuickLogPrefill] = useState<QuickLogParsed | null>(null);
+  const [quickLogVersion, setQuickLogVersion] = useState(0);
+  const [showQuickLogBanner, setShowQuickLogBanner] = useState(false);
 
   const isViewingPast = activeDate !== todayStr();
 
   function handleEdit(entry: DailyEntry) {
     setActiveEntry(entry);
     setActiveDate(entry.date);
+    setQuickLogPrefill(null);
+    setShowQuickLogBanner(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleBackToToday() {
     setActiveEntry(todayEntry);
     setActiveDate(todayStr());
+    setQuickLogPrefill(null);
+    setShowQuickLogBanner(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleQuickLogParsed(data: QuickLogParsed) {
+    setQuickLogPrefill(data);
+    setQuickLogVersion((v) => v + 1);
+    setShowQuickLogBanner(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1095,11 +1273,18 @@ export default function DailyTrackerClient({
           </button>
         )}
 
+        <QuickLogCard onParsed={handleQuickLogParsed} />
+
+        {showQuickLogBanner && (
+          <QuickLogBanner onDismiss={() => setShowQuickLogBanner(false)} />
+        )}
+
         <EntryForm
-          key={activeEntry?.id ?? "new-today"}
+          key={`${activeEntry?.id ?? "new-today"}-${quickLogVersion}`}
           entry={activeEntry}
           targetDate={activeDate}
           userId={userId}
+          quickLogPrefill={quickLogPrefill}
         />
 
         <TrendSection logs={logs} />
