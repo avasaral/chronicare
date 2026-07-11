@@ -104,7 +104,7 @@ id, user_id, visit_date (date), provider_name (text), provider_specialty (text),
 - /login — email + password auth
 - /dashboard — summary view; shows next lab draw date reminder if set (overdue = red styling when past)
 - /medications — medication log with dose history
-- /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills) + trend charts (wellbeing, GI multi-line, bowel movements, sleep — requires 2+ entries with data)
+- /daily-tracker — daily tracker (GI, food, sleep, activity, medication, school, skills) + trend charts (wellbeing, GI multi-line, bowel movements, sleep — requires 2+ entries with data). "Last 14 days" list always renders all 14 dates (today back 13 days), not just dates with a saved entry — missing dates show an empty-state row ("No entry" + "Log this day" button) that opens the form pre-set to that date
 - /symptoms → redirects to /daily-tracker
 - /labs — lab PDF upload; inline next-draw-date control (set/edit/clear); previous results with per-card Re-extract + Delete and "Re-extract all" button; trend charts (category-grouped, requires 2+ distinct report dates); cross-date table (all tests × all report dates, category-grouped)
 - /visits — doctor visit notes; two-mode entry (paste text or upload image/PDF with Claude OCR); past visits list with expand/edit/delete; original images/PDFs viewable via signed URLs

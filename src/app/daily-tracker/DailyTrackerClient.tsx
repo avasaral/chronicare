@@ -99,6 +99,18 @@ function formatDate(dateStr: string) {
   });
 }
 
+// Today back 13 days, descending (most recent first) — 14 dates total.
+function last14Dates(): string[] {
+  const dates: string[] = [];
+  const start = new Date(todayStr() + "T00:00:00Z");
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
 function calcSleepHours(sleptAt: string, wokeAt: string): number | null {
   if (!sleptAt || !wokeAt) return null;
   const [sh, sm] = sleptAt.split(":").map(Number);
@@ -846,11 +858,14 @@ function pillCls(good: boolean): string {
 function LogList({
   logs,
   onEdit,
+  onLogDay,
 }: {
   logs: DailyEntry[];
   onEdit: (entry: DailyEntry) => void;
+  onLogDay: (date: string) => void;
 }) {
   const router = useRouter();
+  const logsByDate = new Map(logs.map((log) => [log.date, log]));
 
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this entry? This cannot be undone.")) return;
@@ -861,58 +876,84 @@ function LogList({
 
   return (
     <div className="space-y-2">
-      {logs.map((log) => (
-        <div
-          key={log.id}
-          className="rounded-2xl border border-border bg-card p-4 space-y-2"
-        >
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <p className="text-sm font-medium text-foreground shrink-0">
-              {formatDate(log.date)}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {log.energy != null && (
-                <span
-                  className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.energy >= 4)}`}
-                >
-                  Energy {log.energy}
-                </span>
-              )}
-              {log.pain_level != null && (
-                <span
-                  className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.pain_level <= 2)}`}
-                >
-                  Pain {log.pain_level}
-                </span>
-              )}
-              {log.medication_taken != null && (
-                <span
-                  className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.medication_taken)}`}
-                >
-                  Meds {log.medication_taken ? "✓" : "✗"}
-                </span>
-              )}
+      {last14Dates().map((date) => {
+        const log = logsByDate.get(date);
+
+        if (!log) {
+          return (
+            <div
+              key={date}
+              className="rounded-2xl border border-dashed border-border bg-card/50 p-4 flex items-center justify-between gap-3"
+            >
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-medium text-foreground">
+                  {formatDate(date)}
+                </p>
+                <p className="text-xs text-muted-foreground/60">No entry</p>
+              </div>
               <button
-                onClick={() => onEdit(log)}
-                className="text-xs text-blue-500 hover:text-blue-400 transition-colors shrink-0"
+                onClick={() => onLogDay(date)}
+                className="text-xs font-medium text-blue-500 hover:text-blue-400 transition-colors shrink-0"
               >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDelete(log.id)}
-                className="text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
-              >
-                Delete
+                Log this day
               </button>
             </div>
+          );
+        }
+
+        return (
+          <div
+            key={log.id}
+            className="rounded-2xl border border-border bg-card p-4 space-y-2"
+          >
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <p className="text-sm font-medium text-foreground shrink-0">
+                {formatDate(log.date)}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {log.energy != null && (
+                  <span
+                    className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.energy >= 4)}`}
+                  >
+                    Energy {log.energy}
+                  </span>
+                )}
+                {log.pain_level != null && (
+                  <span
+                    className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.pain_level <= 2)}`}
+                  >
+                    Pain {log.pain_level}
+                  </span>
+                )}
+                {log.medication_taken != null && (
+                  <span
+                    className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${pillCls(log.medication_taken)}`}
+                  >
+                    Meds {log.medication_taken ? "✓" : "✗"}
+                  </span>
+                )}
+                <button
+                  onClick={() => onEdit(log)}
+                  className="text-xs text-blue-500 hover:text-blue-400 transition-colors shrink-0"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(log.id)}
+                  className="text-xs text-destructive hover:text-destructive/80 transition-colors shrink-0"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+            {log.notes && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {log.notes}
+              </p>
+            )}
           </div>
-          {log.notes && (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {log.notes}
-            </p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1242,6 +1283,14 @@ export default function DailyTrackerClient({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function handleLogDay(date: string) {
+    setActiveEntry(null);
+    setActiveDate(date);
+    setQuickLogPrefill(null);
+    setShowQuickLogBanner(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="min-h-screen bg-[#f2f2f7]">
       <header className="border-b border-black/8 bg-white/80 backdrop-blur-sm px-4 py-4 sticky top-0 z-10">
@@ -1280,7 +1329,7 @@ export default function DailyTrackerClient({
         )}
 
         <EntryForm
-          key={`${activeEntry?.id ?? "new-today"}-${quickLogVersion}`}
+          key={`${activeEntry?.id ?? `new-${activeDate}`}-${quickLogVersion}`}
           entry={activeEntry}
           targetDate={activeDate}
           userId={userId}
@@ -1289,14 +1338,12 @@ export default function DailyTrackerClient({
 
         <TrendSection logs={logs} />
 
-        {logs.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground/50 uppercase tracking-wider px-1">
-              Last 14 days
-            </h2>
-            <LogList logs={logs} onEdit={handleEdit} />
-          </section>
-        )}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground/50 uppercase tracking-wider px-1">
+            Last 14 days
+          </h2>
+          <LogList logs={logs} onEdit={handleEdit} onLogDay={handleLogDay} />
+        </section>
       </main>
     </div>
   );
